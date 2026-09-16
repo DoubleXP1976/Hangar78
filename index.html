@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HANGAR 78 Analytics Tracker — G.01v34</title>
+<title>HANGAR 78 Analytics Tracker — G.04</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
@@ -14,11 +14,15 @@
   body { margin:0; background:#0a0a0a; color:#fff; font-family:Roboto,Arial,sans-serif; }
   .header { position:sticky; top:0; z-index:10; background:rgba(10,10,10,.95); backdrop-filter:blur(6px); border-bottom:1px solid #262626; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
   .brand { display:flex; align-items:center; gap:10px; }
-  .brand .logo { background:#ff0000; border-radius:8px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:bold; overflow:hidden; }
+  .brand .logo { background:#ff0000; border-radius:8px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:bold; overflow:hidden; flex-shrink:0; }
   .brand .logo img { width:100%; height:100%; object-fit:cover; }
+  .brand .title-row { display:flex; align-items:center; gap:6px; }
   .brand .title { font-weight:600; font-size:15px; line-height:1.2; }
   .brand .sub { font-size:11px; color:#888; line-height:1.2; }
-  .version-badge { background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:2px 6px; font-size:9px; color:#888; margin-left:6px; }
+  .version-badge { background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:2px 6px; font-size:9px; color:#888; }
+  .info-btn { width:16px; height:16px; border-radius:50%; background:#262626; border:1px solid #444; color:#999; font-size:10px; display:flex; align-items:center; justify-content:center; cursor:help; position:relative; }
+  .info-btn:hover .info-tooltip { display:block; }
+  .info-tooltip { display:none; position:absolute; top:22px; left:0; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:10px 12px; font-size:11px; color:#ccc; width:220px; z-index:20; line-height:1.5; box-shadow:0 4px 12px rgba(0,0,0,.5); }
   .btn { background:#262626; border:none; color:#ccc; padding:6px 10px; border-radius:8px; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:.15s; }
   .btn:hover { background:#333; color:#fff; }
   .btn.danger:hover { color:#ff5252; }
@@ -176,6 +180,27 @@
   .summary-body b { display:block; font-size:12.5px; }
   .summary-body .tip { color:#999; font-size:11px; margin-top:2px; line-height:1.4; }
   .summary-empty { color:#777; font-size:12px; padding:8px 0; }
+
+  .compare-card { background:linear-gradient(145deg,#141414,#2b0d1a); border:1px solid #4d1f30; border-radius:14px; padding:16px; }
+  .compare-search-row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .compare-search-row input[type=text] { flex:1; min-width:180px; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:9px 12px; color:#fff; font-size:13px; }
+  .compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+  @media (max-width:640px) { .compare-grid { grid-template-columns:1fr; } }
+  .compare-col { background:#1a1a1a; border-radius:12px; padding:14px; border-top:3px solid #444; }
+  .compare-col.mine { border-top-color:#ff0000; }
+  .compare-col.theirs { border-top-color:#ec4899; }
+  .compare-channel-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .compare-channel-head img { width:40px; height:40px; border-radius:50%; object-fit:cover; }
+  .compare-channel-head .cname { font-weight:700; font-size:14px; }
+  .compare-channel-head .chandle { font-size:11px; color:#888; }
+  .compare-stat-row { display:flex; justify-content:space-between; font-size:12.5px; padding:6px 0; border-bottom:1px solid #222; }
+  .compare-stat-row:last-child { border-bottom:none; }
+  .compare-stat-row .lbl { color:#999; }
+  .compare-stat-row .val { font-weight:600; }
+  .compare-winner-badge { font-size:10px; background:rgba(34,197,94,.15); color:#22c55e; padding:1px 6px; border-radius:6px; margin-left:6px; }
+  .compare-grade-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #222; font-size:12.5px; }
+  .compare-grade-row:last-child { border-bottom:none; }
+  .compare-mini-grade { font-weight:800; font-size:16px; width:26px; text-align:center; }
 </style>
 </head>
 <body>
@@ -184,7 +209,11 @@
   <div class="brand">
     <div class="logo" id="logoContainer">▶</div>
     <div>
-      <div class="title" id="channelNameLabel">HANGAR 78 <span class="version-badge">G.01 · Live API</span></div>
+      <div class="title-row">
+        <span class="title" id="channelNameLabel">HANGAR 78</span>
+        <span class="version-badge" id="versionBadge">G.04</span>
+        <div class="info-btn">ⓘ<div class="info-tooltip" id="versionTooltip">HANGAR 78 Analytics Tracker<br>Version G.04 · Live API<br>Deployed via GitHub Pages</div></div>
+      </div>
       <div class="sub" id="pullCount">Not signed in</div>
     </div>
   </div>
@@ -241,6 +270,17 @@
       <div id="fetchStatus" class="status"></div>
     </div>
 
+    <div class="card compare-card">
+      <div class="sectiontitle">⚔️ Compare vs. Another Channel</div>
+      <div style="font-size:11px; color:#c98aa8; margin-bottom:4px;">Look up any public channel by @handle for a side-by-side comparison. Only public data is available for other channels — no private analytics, CTR, or retention.</div>
+      <div class="compare-search-row">
+        <input type="text" id="competitorHandleInput" placeholder="@theirusername">
+        <button class="btn primary" onclick="runCompetitorComparison()" id="compareBtn">Compare</button>
+      </div>
+      <div id="compareStatus" class="status"></div>
+      <div id="compareResults"></div>
+    </div>
+
     <div id="dashboardArea"></div>
   </div>
 </div>
@@ -257,6 +297,9 @@
 </div>
 
 <script>
+// ================= VERSION =================
+const APP_VERSION = "G.04";
+
 // ================= CONFIG =================
 const CLIENT_ID = "755304224313-osq8jaqlq04t29n7fmqdfcg0evhb5t7p.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/yt-analytics.readonly https://www.googleapis.com/auth/youtube.readonly";
@@ -298,15 +341,15 @@ function saveLifetime() { try { localStorage.setItem(LIFETIME_KEY, JSON.stringif
 function saveRecent28() { try { localStorage.setItem(RECENT28_KEY, JSON.stringify(state.recent28)); } catch(e) {} }
 function saveQuarterPlans() { try { localStorage.setItem(QUARTER_PLANS_KEY, JSON.stringify(state.quarterPlans)); } catch(e) {} }
 
-// ================= AUTH (Google Identity Services) =================
+// ================= INIT =================
 window.onload = function() {
+  document.title = `HANGAR 78 Analytics Tracker — ${APP_VERSION}`;
   loadLocalData();
   initGis();
   initGapi();
   loadWorldMapPaths();
 };
 
-// ================= REAL WORLD MAP (D3 + world-atlas, cached once) =================
 let worldMapPathsCache = null;
 async function loadWorldMapPaths() {
   try {
@@ -330,8 +373,7 @@ function initGis() {
     if (window.google && window.google.accounts) {
       clearInterval(check);
       state.tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
+        client_id: CLIENT_ID, scope: SCOPES,
         callback: (resp) => {
           if (resp.error) { setSigninStatus('err', 'Sign-in failed: ' + resp.error); return; }
           state.accessToken = resp.access_token;
@@ -356,9 +398,7 @@ function initGapi() {
           await Promise.all(DISCOVERY_DOCS.map(d => gapi.client.load(d)));
           state.gapiLoaded = true;
           updateSignInButton();
-        } catch(e) {
-          setSigninStatus('err', 'Failed to load Google API client: ' + e.message);
-        }
+        } catch(e) { setSigninStatus('err', 'Failed to load Google API client: ' + e.message); }
       });
     }
   }, 100);
@@ -366,29 +406,19 @@ function initGapi() {
 
 function updateSignInButton() {
   const btn = document.getElementById('signInBtn');
-  if (state.gisLoaded && state.gapiLoaded) {
-    btn.disabled = false;
-    btn.textContent = 'Sign in with Google';
-  }
+  if (state.gisLoaded && state.gapiLoaded) { btn.disabled = false; btn.textContent = 'Sign in with Google'; }
 }
-
 function handleSignIn() {
   if (!state.tokenClient) { setSigninStatus('err','Google Sign-In is still loading — try again in a moment.'); return; }
   state.tokenClient.requestAccessToken({ prompt: 'consent' });
 }
-
 function handleSignOut() {
-  if (state.accessToken) {
-    google.accounts.oauth2.revoke(state.accessToken, () => {});
-  }
-  state.accessToken = null;
-  state.isSignedIn = false;
-  state.channelInfo = null;
+  if (state.accessToken) google.accounts.oauth2.revoke(state.accessToken, () => {});
+  state.accessToken = null; state.isSignedIn = false; state.channelInfo = null;
   document.getElementById('signinCard').style.display = 'block';
   document.getElementById('appContent').style.display = 'none';
   render();
 }
-
 async function onSignedIn() {
   setSigninStatus('info', 'Signed in — fetching channel info…');
   try {
@@ -399,11 +429,8 @@ async function onSignedIn() {
     setSigninStatus(null, '');
     render();
     if (!state.lifetime) refreshLifetime();
-  } catch(e) {
-    setSigninStatus('err', 'Signed in, but could not fetch channel info: ' + (e?.result?.error?.message || e.message));
-  }
+  } catch(e) { setSigninStatus('err', 'Signed in, but could not fetch channel info: ' + (e?.result?.error?.message || e.message)); }
 }
-
 function setSigninStatus(type, msg) {
   const el = document.getElementById('signinStatus');
   if (!msg) { el.innerHTML = ''; return; }
@@ -411,7 +438,7 @@ function setSigninStatus(type, msg) {
 }
 
 // ================= API WRAPPERS =================
-async function apiCallWithRetry(fn, retriesLeft = 2) {
+async function apiCallWithRetry(fn, retriesLeft = 3) {
   try { return await fn(); }
   catch(e) {
     if (e?.status === 401 && state.tokenClient) {
@@ -425,10 +452,8 @@ async function apiCallWithRetry(fn, retriesLeft = 2) {
         state.tokenClient.requestAccessToken({ prompt: '' });
       });
     }
-    // Google's Analytics API intermittently returns generic 500 "internal error" responses
-    // that are known to be transient — retry with a short backoff before giving up.
-    if (e?.status === 500 && retriesLeft > 0) {
-      const delay = (3 - retriesLeft) * 800 + 400; // 400ms, then 1200ms
+    if ((e?.status === 500 || e?.status === 503) && retriesLeft > 0) {
+      const delay = (4 - retriesLeft) * 700 + 500;
       await new Promise(res => setTimeout(res, delay));
       return apiCallWithRetry(fn, retriesLeft - 1);
     }
@@ -441,13 +466,10 @@ async function getChannelInfo() {
     const res = await gapi.client.youtube.channels.list({ part: 'snippet,statistics,contentDetails', mine: true });
     const ch = res.result.items[0];
     return {
-      id: ch.id,
-      title: ch.snippet.title,
-      thumbnail: ch.snippet.thumbnails?.default?.url,
+      id: ch.id, title: ch.snippet.title, thumbnail: ch.snippet.thumbnails?.default?.url,
       publishedAt: ch.snippet.publishedAt,
       subscriberCount: ch.statistics.hiddenSubscriberCount ? null : parseInt(ch.statistics.subscriberCount, 10),
-      viewCount: parseInt(ch.statistics.viewCount, 10),
-      videoCount: parseInt(ch.statistics.videoCount, 10),
+      viewCount: parseInt(ch.statistics.viewCount, 10), videoCount: parseInt(ch.statistics.videoCount, 10),
       uploadsPlaylistId: ch.contentDetails?.relatedPlaylists?.uploads,
     };
   });
@@ -455,27 +477,15 @@ async function getChannelInfo() {
 
 async function queryAnalytics(params) {
   return apiCallWithRetry(async () => {
-    console.log('[queryAnalytics] Sending params:', JSON.stringify(params));
-    try {
-      const res = await gapi.client.youtubeAnalytics.reports.query(params);
-      return res.result;
-    } catch(e) {
-      console.error('[queryAnalytics] RAW error object:', e);
-      console.error('[queryAnalytics] error.result:', JSON.stringify(e?.result));
-      console.error('[queryAnalytics] error.body:', e?.body);
-      throw e;
-    }
+    const res = await gapi.client.youtubeAnalytics.reports.query(params);
+    return res.result;
   });
 }
 
 function rowsToObjects(report) {
   if (!report || !report.rows) return [];
   const headers = report.columnHeaders.map(h => h.name);
-  return report.rows.map(row => {
-    const o = {};
-    headers.forEach((h,i) => o[h] = row[i]);
-    return o;
-  });
+  return report.rows.map(row => { const o = {}; headers.forEach((h,i) => o[h] = row[i]); return o; });
 }
 
 const TRAFFIC_SOURCE_LABELS = {
@@ -498,9 +508,7 @@ const SOURCE_COLORS = {
 };
 function sourceColor(name) { return SOURCE_COLORS[name] || '#666'; }
 
-// ================= VERIFICATION MARKER: SORT-PARAM-FIX-V2 =================
 async function fetchTrafficSources(start, end) {
-  console.log('[SORT-FIX-V2] fetchTrafficSources running WITHOUT sort param, range:', start, end);
   const rep = await queryAnalytics({
     ids: 'channel==MINE', startDate: start, endDate: end,
     metrics: 'views,estimatedMinutesWatched', dimensions: 'insightTrafficSourceType',
@@ -508,8 +516,7 @@ async function fetchTrafficSources(start, end) {
   const rows = rowsToObjects(rep);
   const totalViews = rows.reduce((a,r) => a + (r.views||0), 0);
   return rows.map(r => ({
-    name: trafficLabel(r.insightTrafficSourceType),
-    views: r.views, watchTimeHours: r.estimatedMinutesWatched/60,
+    name: trafficLabel(r.insightTrafficSourceType), views: r.views, watchTimeHours: r.estimatedMinutesWatched/60,
     pctViews: totalViews ? (r.views/totalViews)*100 : 0,
   })).sort((a,b) => b.views - a.views);
 }
@@ -546,7 +553,6 @@ const COUNTRY_INFO = {
 function countryInfo(code) { return COUNTRY_INFO[code] || { name: code, flag: '🌐', lat: 0, lon: 0, unknown: true }; }
 
 async function fetchGeography(start, end) {
-  console.log('[SORT-FIX-V2] fetchGeography running WITHOUT sort param, range:', start, end);
   const rep = await queryAnalytics({
     ids: 'channel==MINE', startDate: start, endDate: end,
     metrics: 'views,estimatedMinutesWatched', dimensions: 'country', maxResults: 50,
@@ -554,8 +560,7 @@ async function fetchGeography(start, end) {
   const rows = rowsToObjects(rep);
   const totalViews = rows.reduce((a,r) => a + (r.views||0), 0);
   return rows.map(r => ({
-    code: r.country, ...countryInfo(r.country),
-    views: r.views, watchTimeHours: r.estimatedMinutesWatched/60,
+    code: r.country, ...countryInfo(r.country), views: r.views, watchTimeHours: r.estimatedMinutesWatched/60,
     pctViews: totalViews ? (r.views/totalViews)*100 : 0,
   })).sort((a,b) => b.views - a.views);
 }
@@ -584,20 +589,10 @@ function fmtDateISO(d) { return d.toISOString().slice(0,10); }
 function computeRangeForMode(mode) {
   const today = new Date();
   const end = fmtDateISO(today);
-  if (mode === '28d') {
-    const start = new Date(today); start.setDate(start.getDate()-28);
-    return { start: fmtDateISO(start), end, label: 'Last 28 Days' };
-  }
-  if (mode === '365d') {
-    const start = new Date(today); start.setDate(start.getDate()-365);
-    return { start: fmtDateISO(start), end, label: 'Trailing 365 Days' };
-  }
-  if (mode === 'lifetime') {
-    const start = state.channelInfo?.publishedAt ? state.channelInfo.publishedAt.slice(0,10) : '2005-01-01';
-    return { start, end, label: 'Full Lifetime' };
-  }
-  const s = document.getElementById('customStartDate').value;
-  const e = document.getElementById('customEndDate').value;
+  if (mode === '28d') { const start = new Date(today); start.setDate(start.getDate()-28); return { start: fmtDateISO(start), end, label: 'Last 28 Days' }; }
+  if (mode === '365d') { const start = new Date(today); start.setDate(start.getDate()-365); return { start: fmtDateISO(start), end, label: 'Trailing 365 Days' }; }
+  if (mode === 'lifetime') { const start = state.channelInfo?.publishedAt ? state.channelInfo.publishedAt.slice(0,10) : '2005-01-01'; return { start, end, label: 'Full Lifetime' }; }
+  const s = document.getElementById('customStartDate').value, e = document.getElementById('customEndDate').value;
   return { start: s, end: e, label: `${s} to ${e}` };
 }
 
@@ -608,31 +603,24 @@ async function fetchPeriodTotals(start, end) {
   });
   const row = rowsToObjects(rep)[0] || {};
   return {
-    views: row.views ?? null,
-    engagedViews: row.engagedViews ?? null,
+    views: row.views ?? null, engagedViews: row.engagedViews ?? null,
     watchTimeHours: row.estimatedMinutesWatched != null ? row.estimatedMinutesWatched/60 : null,
     avgViewDurationSec: row.averageViewDuration ?? null,
     subscribers: (row.subscribersGained != null && row.subscribersLost != null) ? (row.subscribersGained - row.subscribersLost) : (row.subscribersGained ?? null),
-    likes: row.likes ?? null,
-    engagementRate: (row.likes != null && row.views) ? (row.likes/row.views)*100 : null,
+    likes: row.likes ?? null, engagementRate: (row.likes != null && row.views) ? (row.likes/row.views)*100 : null,
     ctr: null, thumbnailImpressions: null, stayedToWatchPct: null, newViewers: null, returningViewers: null,
   };
 }
 
 async function fetchDailySeries(start, end) {
-  const rep = await queryAnalytics({
-    ids: 'channel==MINE', startDate: start, endDate: end,
-    metrics: 'views,engagedViews,estimatedMinutesWatched', dimensions: 'day', sort: 'day',
-  });
-  const rows = rowsToObjects(rep);
-  return rows.map(r => ({ date: r.day, views: r.views, engagedViews: r.engagedViews, watchTimeHours: r.estimatedMinutesWatched/60 }));
+  const rep = await queryAnalytics({ ids: 'channel==MINE', startDate: start, endDate: end, metrics: 'views,engagedViews,estimatedMinutesWatched', dimensions: 'day', sort: 'day' });
+  return rowsToObjects(rep).map(r => ({ date: r.day, views: r.views, engagedViews: r.engagedViews, watchTimeHours: r.estimatedMinutesWatched/60 }));
 }
 
 async function fetchTopVideosWithSplit(start, end) {
   const rep = await queryAnalytics({
     ids: 'channel==MINE', startDate: start, endDate: end,
-    metrics: 'views,engagedViews,estimatedMinutesWatched,likes,subscribersGained',
-    dimensions: 'video', sort: '-views', maxResults: 25,
+    metrics: 'views,engagedViews,estimatedMinutesWatched,likes,subscribersGained', dimensions: 'video', sort: '-views', maxResults: 25,
   });
   const rows = rowsToObjects(rep);
   const ids = rows.map(r => r.video).filter(Boolean);
@@ -640,18 +628,13 @@ async function fetchTopVideosWithSplit(start, end) {
   const videos = rows.map(r => {
     const meta = durations[r.video] || {};
     const isLive = (meta.seconds && meta.seconds > 900);
-    return {
-      id: r.video, title: meta.title || r.video, views: r.views||0, engagedViews: r.engagedViews||0,
-      watchTime: r.estimatedMinutesWatched ? r.estimatedMinutesWatched/60 : 0,
-      likes: r.likes||0, subs: r.subscribersGained||0, ctr: null, thumb: 0, isLive,
-    };
+    return { id: r.video, title: meta.title || r.video, views: r.views||0, engagedViews: r.engagedViews||0,
+      watchTime: r.estimatedMinutesWatched ? r.estimatedMinutesWatched/60 : 0, likes: r.likes||0, subs: r.subscribersGained||0, ctr: null, thumb: 0, isLive };
   });
   function agg(list) {
     if (!list.length) return { views:0, watchTimeHours:0, subscribers:0, ctr:null, engagementRate:null, avgViewDurationSec:null, stayedToWatchPct:null };
-    const views = list.reduce((a,v)=>a+v.views,0);
-    const watchTimeHours = list.reduce((a,v)=>a+v.watchTime,0);
-    const subscribers = list.reduce((a,v)=>a+v.subs,0);
-    const likes = list.reduce((a,v)=>a+v.likes,0);
+    const views = list.reduce((a,v)=>a+v.views,0), watchTimeHours = list.reduce((a,v)=>a+v.watchTime,0);
+    const subscribers = list.reduce((a,v)=>a+v.subs,0), likes = list.reduce((a,v)=>a+v.likes,0);
     return { views, watchTimeHours, subscribers, ctr:null, engagementRate: views?(likes/views)*100:null, avgViewDurationSec:null, stayedToWatchPct:null };
   }
   return { videos, liveTotals: agg(videos.filter(v=>v.isLive)), shortTotals: agg(videos.filter(v=>!v.isLive)) };
@@ -660,34 +643,46 @@ async function fetchTopVideosWithSplit(start, end) {
 async function fetchAndBuildPull(start, end, label) {
   let trafficWarning = null, geoWarning = null;
   const [totals, dailySeries, videoData, trafficSources, geography] = await Promise.all([
-    fetchPeriodTotals(start, end),
-    fetchDailySeries(start, end),
-    fetchTopVideosWithSplit(start, end),
-    fetchTrafficSources(start, end).catch((e) => {
-      console.error('Traffic Sources fetch failed:', e?.result?.error || e);
-      trafficWarning = e?.result?.error?.message || e.message || 'Unknown error';
-      return [];
-    }),
-    fetchGeography(start, end).catch((e) => {
-      console.error('Geography fetch failed:', e?.result?.error || e);
-      geoWarning = e?.result?.error?.message || e.message || 'Unknown error';
-      return [];
-    }),
+    fetchPeriodTotals(start, end), fetchDailySeries(start, end), fetchTopVideosWithSplit(start, end),
+    fetchTrafficSources(start, end).catch((e) => { console.error('Traffic Sources fetch failed:', e?.result?.error || e); trafficWarning = e?.result?.error?.message || e.message; return []; }),
+    fetchGeography(start, end).catch((e) => { console.error('Geography fetch failed:', e?.result?.error || e); geoWarning = e?.result?.error?.message || e.message; return []; }),
   ]);
-  if (trafficWarning) setFetchStatus('err', `Traffic Sources data failed to load (${trafficWarning}). This is usually a temporary Google API issue — try "Refresh from API" again in a moment.`);
-  else if (geoWarning) setFetchStatus('err', `Geography data failed to load (${geoWarning}). This is usually a temporary Google API issue — try "Refresh from API" again in a moment.`);
+  if (trafficWarning) setFetchStatus('err', `Traffic Sources failed to load (${trafficWarning}). Try refreshing again — this is usually a temporary Google API issue.`);
+  else if (geoWarning) setFetchStatus('err', `Geography failed to load (${geoWarning}). Try refreshing again — this is usually a temporary Google API issue.`);
   const subsOverride = document.getElementById('subsOverrideInput')?.value;
   totals.totalSubscribers = subsOverride ? parseFloat(subsOverride) : (state.channelInfo?.subscriberCount ?? null);
   return {
-    id: 'pull_' + Date.now(),
-    label: label || `${start} to ${end}`,
-    savedAt: new Date().toISOString(),
-    range: { start, end },
+    id: 'pull_' + Date.now(), label: label || `${start} to ${end}`, savedAt: new Date().toISOString(), range: { start, end },
     totals, videos: videoData.videos, liveTotals: videoData.liveTotals, shortTotals: videoData.shortTotals,
     dailySeries: { metricName: 'views', points: dailySeries.map(d => ({ date:d.date, value:d.views })) },
     watchTimeDailySeries: dailySeries.map(d => ({ date:d.date, value:d.watchTimeHours })),
     trafficSources, geography,
   };
+}
+
+// ================= RETRY-ONLY TRAFFIC/GEO =================
+async function retryTrafficAndGeo(targetKind) {
+  const btnId = targetKind === 'lifetime' ? 'retryLtBtn' : 'retry28Btn';
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Retrying…'; }
+  try {
+    const range = targetKind === 'lifetime' ? computeRangeForMode('lifetime') : computeRangeForMode('28d');
+    const [trafficSources, geography] = await Promise.all([
+      fetchTrafficSources(range.start, range.end).catch(e => { console.error(e); return null; }),
+      fetchGeography(range.start, range.end).catch(e => { console.error(e); return null; }),
+    ]);
+    const target = targetKind === 'lifetime' ? state.lifetime : state.recent28;
+    if (target) {
+      if (trafficSources) target.trafficSources = trafficSources;
+      if (geography) target.geography = geography;
+    }
+    if (targetKind === 'lifetime') saveLifetime(); else saveRecent28();
+    if (!trafficSources && !geography) setFetchStatus('err', 'Retry failed again — Google\'s API may still be having issues. Try again in a few minutes.');
+    else setFetchStatus('ok', 'Traffic Sources / Geography refreshed successfully.');
+    render();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔁 Retry Traffic/Geo Only'; }
+  }
 }
 
 // ================= FETCH PANEL UI =================
@@ -708,17 +703,13 @@ async function fetchAndSavePull() {
   try {
     const label = document.getElementById('pullLabelInput').value || range.label;
     const pull = await fetchAndBuildPull(range.start, range.end, label);
-    state.pulls.push(pull);
-    state.pulls.sort((a,b) => a.savedAt.localeCompare(b.savedAt));
+    state.pulls.push(pull); state.pulls.sort((a,b) => a.savedAt.localeCompare(b.savedAt));
     savePulls();
     setFetchStatus('ok', `Snapshot saved: ${label}`);
     document.getElementById('subsOverrideInput').value = '';
     render();
-  } catch(e) {
-    setFetchStatus('err', 'Fetch failed: ' + (e?.result?.error?.message || e.message));
-  } finally {
-    btn.disabled = false; btn.textContent = 'Fetch & Save Snapshot';
-  }
+  } catch(e) { setFetchStatus('err', 'Fetch failed: ' + (e?.result?.error?.message || e.message)); }
+  finally { btn.disabled = false; btn.textContent = 'Fetch & Save Snapshot'; }
 }
 
 function setFetchStatus(type, msg) {
@@ -740,17 +731,157 @@ async function refreshLifetime() {
     ]);
     state.lifetime = { ...ltPull, rangeLabel: `${ltRange.start} → ${ltRange.end}`, daysCovered: ltPull.dailySeries.points.length };
     state.recent28 = recentPull;
-    saveLifetime();
-    saveRecent28();
+    saveLifetime(); saveRecent28();
     render();
-  } catch(e) {
-    setFetchStatus('err', 'Lifetime refresh failed: ' + (e?.result?.error?.message || e.message));
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh from API'; }
-  }
+  } catch(e) { setFetchStatus('err', 'Lifetime refresh failed: ' + (e?.result?.error?.message || e.message)); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh from API'; } }
 }
 
-// ================= SHARED HELPERS (formatting) =================
+// ================= COMPETITOR COMPARISON =================
+async function resolveChannelByHandle(handle) {
+  const clean = handle.trim().replace(/^@/, '');
+  return apiCallWithRetry(async () => {
+    const res = await gapi.client.youtube.channels.list({ part: 'snippet,statistics,contentDetails', forHandle: clean });
+    if (!res.result.items || !res.result.items.length) throw new Error(`No channel found for @${clean}`);
+    const ch = res.result.items[0];
+    return {
+      id: ch.id, handle: '@'+clean, title: ch.snippet.title, thumbnail: ch.snippet.thumbnails?.default?.url,
+      publishedAt: ch.snippet.publishedAt,
+      subscriberCount: ch.statistics.hiddenSubscriberCount ? null : parseInt(ch.statistics.subscriberCount, 10),
+      viewCount: parseInt(ch.statistics.viewCount, 10), videoCount: parseInt(ch.statistics.videoCount, 10),
+      uploadsPlaylistId: ch.contentDetails?.relatedPlaylists?.uploads,
+    };
+  });
+}
+
+async function fetchRecentVideoStats(uploadsPlaylistId, daysBack) {
+  if (!uploadsPlaylistId) return { videos: [], totalViews: 0, count: 0 };
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - daysBack);
+  let videos = [];
+  let pageToken = null;
+  for (let page = 0; page < 4; page++) {
+    const res = await apiCallWithRetry(() => gapi.client.youtube.playlistItems.list({
+      part: 'contentDetails,snippet', playlistId: uploadsPlaylistId, maxResults: 50, pageToken: pageToken || undefined,
+    }));
+    const items = res.result.items || [];
+    let hitOld = false;
+    items.forEach(it => {
+      const publishedAt = new Date(it.contentDetails.videoPublishedAt || it.snippet.publishedAt);
+      if (publishedAt >= cutoff) videos.push({ id: it.contentDetails.videoId, publishedAt });
+      else hitOld = true;
+    });
+    pageToken = res.result.nextPageToken;
+    if (!pageToken || hitOld) break;
+  }
+  if (!videos.length) return { videos: [], totalViews: 0, count: 0 };
+  const ids = videos.map(v => v.id);
+  let totalViews = 0, totalLikes = 0;
+  for (let i=0; i<ids.length; i+=50) {
+    const batch = ids.slice(i, i+50);
+    const res = await apiCallWithRetry(() => gapi.client.youtube.videos.list({ part:'statistics', id: batch.join(',') }));
+    (res.result.items||[]).forEach(v => { totalViews += parseInt(v.statistics.viewCount||0,10); totalLikes += parseInt(v.statistics.likeCount||0,10); });
+  }
+  return { videos, totalViews, totalLikes, count: videos.length };
+}
+
+function computeSimpleGrade(myVal, theirVal, higherIsBetter=true) {
+  if (myVal == null || theirVal == null) return { letter:'—', diffPct: null };
+  const diff = theirVal === 0 ? (myVal>0?100:0) : ((myVal - theirVal) / Math.abs(theirVal)) * 100;
+  const effectiveDiff = higherIsBetter ? diff : -diff;
+  let letter;
+  if (effectiveDiff >= 25) letter = 'A';
+  else if (effectiveDiff >= 5) letter = 'B';
+  else if (effectiveDiff >= -5) letter = 'C';
+  else if (effectiveDiff >= -25) letter = 'D';
+  else letter = 'F';
+  return { letter, diffPct: diff };
+}
+
+async function runCompetitorComparison() {
+  const input = document.getElementById('competitorHandleInput').value.trim();
+  if (!input) { setCompareStatus('err', 'Enter a channel @handle to compare.'); return; }
+  if (!state.channelInfo) { setCompareStatus('err', 'Your channel info isn\'t loaded yet — sign in first.'); return; }
+  const btn = document.getElementById('compareBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Looking up…';
+  setCompareStatus('info', `Looking up ${input}…`);
+  try {
+    const theirs = await resolveChannelByHandle(input);
+    setCompareStatus('info', `Found ${theirs.title} — pulling recent video stats…`);
+    const [my28, their28] = await Promise.all([
+      fetchRecentVideoStats(state.channelInfo.uploadsPlaylistId, 28),
+      fetchRecentVideoStats(theirs.uploadsPlaylistId, 28),
+    ]);
+    state.competitorResult = {
+      mine: { ...state.channelInfo, recent28: my28 },
+      theirs: { ...theirs, recent28: their28 },
+      comparedAt: new Date().toISOString(),
+    };
+    setCompareStatus('ok', `Comparison ready: HANGAR 78 vs. ${theirs.title}`);
+    render();
+  } catch(e) {
+    setCompareStatus('err', 'Comparison failed: ' + (e?.result?.error?.message || e.message));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Compare';
+  }
+}
+function setCompareStatus(type, msg) {
+  const el = document.getElementById('compareStatus');
+  if (!msg) { el.innerHTML=''; return; }
+  el.innerHTML = `<span class="${type==='err'?'err':type==='info'?'info':'ok'}">${type==='info'?'<span class="spinner"></span> ':''}${msg}</span>`;
+}
+
+function renderCompetitorComparison() {
+  const c = state.competitorResult;
+  const el = document.getElementById('compareResults');
+  if (!c) { el.innerHTML = ''; return; }
+  const { mine, theirs } = c;
+  const myAvgViews28 = mine.recent28.count ? mine.recent28.totalViews / mine.recent28.count : null;
+  const theirAvgViews28 = theirs.recent28.count ? theirs.recent28.totalViews / theirs.recent28.count : null;
+
+  function col(cls, chan, is28Avg) {
+    return `<div class="compare-col ${cls}">
+      <div class="compare-channel-head">
+        ${chan.thumbnail ? `<img src="${chan.thumbnail}">` : ''}
+        <div><div class="cname">${chan.title}</div><div class="chandle">${chan.handle || ''}</div></div>
+      </div>
+      <div class="compare-stat-row"><span class="lbl">Total Subscribers</span><span class="val">${chan.subscriberCount!=null?fmt(chan.subscriberCount):'Hidden'}</span></div>
+      <div class="compare-stat-row"><span class="lbl">Lifetime Views</span><span class="val">${fmt(chan.viewCount)}</span></div>
+      <div class="compare-stat-row"><span class="lbl">Total Videos</span><span class="val">${fmt(chan.videoCount)}</span></div>
+      <div class="compare-stat-row"><span class="lbl">Channel Age</span><span class="val">${channelAgeLabel(chan.publishedAt)}</span></div>
+      <div class="compare-stat-row"><span class="lbl">Videos in Last 28d</span><span class="val">${chan.recent28.count}</span></div>
+      <div class="compare-stat-row"><span class="lbl">Views (Last 28d uploads)</span><span class="val">${fmt(chan.recent28.totalViews)}</span></div>
+      <div class="compare-stat-row"><span class="lbl">Avg Views/Video (28d)</span><span class="val">${is28Avg!=null?fmt(Math.round(is28Avg)):'—'}</span></div>
+    </div>`;
+  }
+
+  const grades = [
+    { label: 'Total Subscribers', g: computeSimpleGrade(mine.subscriberCount, theirs.subscriberCount) },
+    { label: 'Lifetime Views', g: computeSimpleGrade(mine.viewCount, theirs.viewCount) },
+    { label: 'Upload Activity (28d)', g: computeSimpleGrade(mine.recent28.count, theirs.recent28.count) },
+    { label: 'Avg Views/Video (28d)', g: computeSimpleGrade(myAvgViews28, theirAvgViews28) },
+  ];
+
+  let html = `<div class="compare-grid">${col('mine', mine, myAvgViews28)}${col('theirs', theirs, theirAvgViews28)}</div>`;
+  html += `<div style="margin-top:16px;">
+    <div class="subsectiontitle">Head-to-Head Grades (relative comparison, public data only)</div>`;
+  grades.forEach(row => {
+    html += `<div class="compare-grade-row">
+      <span>${row.label}</span>
+      <span class="compare-mini-grade grade-${row.g.letter}">${row.g.letter}</span>
+    </div>`;
+  });
+  html += `</div>
+  <div class="not-available" style="margin-top:12px;">ℹ️ Only public metrics are available for other channels (subscribers, lifetime views, video count, recent upload stats). Private analytics like watch time, CTR, retention, and traffic sources are only accessible to a channel's own owner — no API can bypass that, for anyone's privacy and security.</div>`;
+  el.innerHTML = html;
+}
+
+function channelAgeLabel(publishedAt) {
+  if (!publishedAt) return '—';
+  const years = ((new Date() - new Date(publishedAt)) / (1000*60*60*24*365.25));
+  return years >= 1 ? `${years.toFixed(1)} yrs` : `${Math.round(years*12)} mo`;
+}
+
+// ================= SHARED HELPERS =================
 function fmt(n) {
   if (n === null || n === undefined) return '—';
   if (typeof n !== 'number') return n;
@@ -772,13 +903,11 @@ function closeClearModal() { document.getElementById('clearModal').classList.rem
 function clearAll() { state.pulls = []; savePulls(); closeClearModal(); render(); }
 
 function exportBackup() {
-  const backup = { pulls: state.pulls, lifetime: state.lifetime, quarterPlans: state.quarterPlans, exportedAt: new Date().toISOString(), version: 'G.01' };
+  const backup = { pulls: state.pulls, lifetime: state.lifetime, recent28: state.recent28, quarterPlans: state.quarterPlans, exportedAt: new Date().toISOString(), version: APP_VERSION };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type:'application/json' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'hangar78-backup-' + new Date().toISOString().slice(0,10) + '.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const a = document.createElement('a'); a.href = url; a.download = 'hangar78-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   setFetchStatus('ok','Backup downloaded.');
 }
 function importBackupFile(file) {
@@ -787,10 +916,8 @@ function importBackupFile(file) {
     try {
       const data = JSON.parse(e.target.result);
       if (!data || !Array.isArray(data.pulls)) throw new Error('Not a valid backup file.');
-      state.pulls = data.pulls;
-      state.lifetime = data.lifetime || null;
-      state.quarterPlans = data.quarterPlans || {};
-      savePulls(); saveLifetime(); saveQuarterPlans();
+      state.pulls = data.pulls; state.lifetime = data.lifetime || null; state.recent28 = data.recent28 || null; state.quarterPlans = data.quarterPlans || {};
+      savePulls(); saveLifetime(); saveRecent28(); saveQuarterPlans();
       setFetchStatus('ok', `Restored ${data.pulls.length} snapshot(s).`);
       render();
     } catch(err) { setFetchStatus('err', 'Could not read backup: ' + err.message); }
@@ -819,21 +946,14 @@ function svgLineChart(trendData) {
   }
   seriesKeys.forEach(s => {
     const pts = trendData.map((d,i) => d[s.key]!=null ? pt(i, d[s.key], maxV) : null).filter(Boolean);
-    if (pts.length) {
-      svg += `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
-      pts.forEach(p => svg += `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${s.color}"/>`);
-    }
+    if (pts.length) { svg += `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`; pts.forEach(p => svg += `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${s.color}"/>`); }
   });
   if (subVals.length) {
     const pts = trendData.map((d,i) => d.subscribers!=null ? pt(i, d.subscribers, maxSub) : null).filter(Boolean);
     svg += `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#2ba640" stroke-width="2.5" stroke-dasharray="4,3"/>`;
     pts.forEach(p => svg += `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="#2ba640"/>`);
   }
-  trendData.forEach((d,i) => {
-    const x = padL + i*stepX;
-    const anchor = i===0 ? 'start' : (i===trendData.length-1 ? 'end' : 'middle');
-    svg += `<text x="${x}" y="${h-10}" text-anchor="${anchor}">${d.label.length>10?d.label.slice(0,10)+'…':d.label}</text>`;
-  });
+  trendData.forEach((d,i) => { const x = padL + i*stepX; const anchor = i===0?'start':(i===trendData.length-1?'end':'middle'); svg += `<text x="${x}" y="${h-10}" text-anchor="${anchor}">${d.label.length>10?d.label.slice(0,10)+'…':d.label}</text>`; });
   svg += `<text x="${padL}" y="14" fill="#ff6666" font-size="10">◀ Views/Engaged</text>`;
   if (subVals.length) svg += `<text x="${w-padR}" y="14" text-anchor="end" fill="#4caf50" font-size="10">Subscribers ▶</text>`;
   svg += `</svg>`;
@@ -848,11 +968,7 @@ function svgEngagedRatioChart(trendData) {
   const stepX = plotW / Math.max(1, trendData.length - 1);
   function pt(i, val) { return [padL + i*stepX, padTB + plotH - (val/maxV)*plotH]; }
   let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:100%; overflow:visible;">`;
-  for (let t=0; t<=4; t++) {
-    const y = padTB + plotH - (t/4)*plotH;
-    svg += `<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="#1e2d3d" stroke-width="1"/>`;
-    svg += `<text x="${padL-8}" y="${y+3}" text-anchor="end" fill="#6b93b5" font-size="10">${((t/4)*maxV).toFixed(0)}%</text>`;
-  }
+  for (let t=0; t<=4; t++) { const y = padTB + plotH - (t/4)*plotH; svg += `<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="#1e2d3d" stroke-width="1"/>`; svg += `<text x="${padL-8}" y="${y+3}" text-anchor="end" fill="#6b93b5" font-size="10">${((t/4)*maxV).toFixed(0)}%</text>`; }
   const pts = trendData.map((d,i) => d.ratio!=null ? pt(i,d.ratio) : null).filter(Boolean);
   if (pts.length) {
     const areaPts = `${padL},${padTB+plotH} ${pts.map(p=>p.join(',')).join(' ')} ${padL+(pts.length-1)*stepX},${padTB+plotH}`;
@@ -860,11 +976,7 @@ function svgEngagedRatioChart(trendData) {
     svg += `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#3ea6ff" stroke-width="2.5"/>`;
     pts.forEach((p) => svg += `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#3ea6ff"/>`);
   }
-  trendData.forEach((d,i) => {
-    const x = padL + i*stepX;
-    const anchor = i===0 ? 'start' : (i===trendData.length-1 ? 'end' : 'middle');
-    svg += `<text x="${x}" y="${h-8}" text-anchor="${anchor}" fill="#6b93b5" font-size="10">${d.label.length>10?d.label.slice(0,10)+'…':d.label}</text>`;
-  });
+  trendData.forEach((d,i) => { const x = padL + i*stepX; const anchor = i===0?'start':(i===trendData.length-1?'end':'middle'); svg += `<text x="${x}" y="${h-8}" text-anchor="${anchor}" fill="#6b93b5" font-size="10">${d.label.length>10?d.label.slice(0,10)+'…':d.label}</text>`; });
   svg += `</svg>`;
   return svg;
 }
@@ -877,10 +989,7 @@ function sparkline(values, color) {
   const range = (max - min) || 1;
   const step = (w - pad*2) / (valid.length - 1);
   const pts = valid.map((v,i) => [pad + i*step, h - pad - ((v-min)/range)*(h-pad*2)]);
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="2"/>
-    ${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2" fill="${color}"/>`).join('')}
-  </svg>`;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="2"/>${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2" fill="${color}"/>`).join('')}</svg>`;
 }
 
 // ================= GRADING =================
@@ -906,20 +1015,16 @@ function computeMetricGrade(key, type) {
   if (valid.length < 2) return { insufficient: true, latest: valid.length ? valid[valid.length-1].v : null, history: series };
   const latest = valid[valid.length-1].v, prevV = valid[valid.length-2].v, first = valid[0].v;
   let recentChange, longChange, recentRaw, longRaw;
-  if (type === 'rate') {
-    recentChange = latest - prevV; longChange = latest - first;
-    recentRaw = recentChange * 20; longRaw = longChange * 12;
-  } else {
+  if (type === 'rate') { recentChange = latest - prevV; longChange = latest - first; recentRaw = recentChange * 20; longRaw = longChange * 12; }
+  else {
     recentChange = prevV !== 0 ? ((latest - prevV) / Math.abs(prevV)) * 100 : (latest > 0 ? 100 : (latest < 0 ? -100 : 0));
     longChange = first !== 0 ? ((latest - first) / Math.abs(first)) * 100 : (latest > 0 ? 100 : (latest < 0 ? -100 : 0));
     recentRaw = recentChange; longRaw = longChange / Math.max(1, valid.length - 1);
   }
   const combined = recentRaw * 0.65 + longRaw * 0.35;
   let letter, gradeLabel;
-  if (combined >= 20) { letter='A'; gradeLabel='Excellent'; }
-  else if (combined >= 8) { letter='B'; gradeLabel='Very Good'; }
-  else if (combined >= -8) { letter='C'; gradeLabel='Average'; }
-  else if (combined >= -25) { letter='D'; gradeLabel='Needs Improvement'; }
+  if (combined >= 20) { letter='A'; gradeLabel='Excellent'; } else if (combined >= 8) { letter='B'; gradeLabel='Very Good'; }
+  else if (combined >= -8) { letter='C'; gradeLabel='Average'; } else if (combined >= -25) { letter='D'; gradeLabel='Needs Improvement'; }
   else { letter='F'; gradeLabel='Catastrophic'; }
   let desc;
   if (letter === 'A' || letter === 'B') desc = (recentChange > 0 && longChange > 0) ? 'Consistent upward trend across pulls.' : 'Recovering — latest period rebounded.';
@@ -935,8 +1040,7 @@ function computeOverallHealth(grades) {
   const avg = valid.reduce((a,g) => a + points[g.letter], 0) / valid.length;
   let letter, label;
   if (avg >= 3.5) { letter='A'; label='Excellent'; } else if (avg >= 2.5) { letter='B'; label='Very Good'; }
-  else if (avg >= 1.5) { letter='C'; label='Average'; } else if (avg >= 0.5) { letter='D'; label='Needs Improvement'; }
-  else { letter='F'; label='Catastrophic'; }
+  else if (avg >= 1.5) { letter='C'; label='Average'; } else if (avg >= 0.5) { letter='D'; label='Needs Improvement'; } else { letter='F'; label='Catastrophic'; }
   const improving = valid.filter(g => g.letter==='A'||g.letter==='B').length;
   const declining = valid.filter(g => g.letter==='D'||g.letter==='F').length;
   return { letter, label, improving, declining, steady: valid.length-improving-declining, total: valid.length };
@@ -951,25 +1055,13 @@ function formatGradeValue(g) {
 function gradeCardHtml(g) {
   if (g.insufficient) {
     const hint = g.key==='totalSubscribers' ? "Total subscribers is auto-fetched, but grading needs 2+ snapshots." : "Needs one more snapshot to grade this metric.";
-    return `<div class="grade-card grade-card-empty">
-      <div class="gc-header"><span>${g.icon}</span><span>${g.label}</span></div>
-      <div class="gc-grade" style="color:#555;">—</div>
-      <div class="gc-desc">${hint}</div>
-      ${g.latest != null ? `<div class="gc-value">${formatGradeValue(g)}</div>` : ''}
-    </div>`;
+    return `<div class="grade-card grade-card-empty"><div class="gc-header"><span>${g.icon}</span><span>${g.label}</span></div><div class="gc-grade" style="color:#555;">—</div><div class="gc-desc">${hint}</div>${g.latest != null ? `<div class="gc-value">${formatGradeValue(g)}</div>` : ''}</div>`;
   }
   const arrow = g.recentChange > 0 ? '▲' : (g.recentChange < 0 ? '▼' : '–');
   const deltaCls = g.recentChange > 0 ? 'up' : (g.recentChange < 0 ? 'down' : 'flat');
   const deltaUnit = g.type === 'rate' ? 'pp' : '%';
   const spark = sparkline(g.history, gradeColor(g.letter));
-  return `<div class="grade-card border-${g.letter}">
-    <div class="gc-header"><span>${g.icon}</span><span>${g.label}</span></div>
-    <div class="gc-grade grade-${g.letter}">${g.letter}</div>
-    <div class="gc-glabel" style="color:${gradeColor(g.letter)};">${g.gradeLabel}</div>
-    <div class="gc-desc">${g.desc}</div>
-    <div class="gc-value">${formatGradeValue(g)} <span class="gc-delta ${deltaCls}">${arrow} ${g.recentChange>0?'+':''}${g.recentChange.toFixed(1)}${deltaUnit}</span></div>
-    <div class="gc-spark">${spark}</div>
-  </div>`;
+  return `<div class="grade-card border-${g.letter}"><div class="gc-header"><span>${g.icon}</span><span>${g.label}</span></div><div class="gc-grade grade-${g.letter}">${g.letter}</div><div class="gc-glabel" style="color:${gradeColor(g.letter)};">${g.gradeLabel}</div><div class="gc-desc">${g.desc}</div><div class="gc-value">${formatGradeValue(g)} <span class="gc-delta ${deltaCls}">${arrow} ${g.recentChange>0?'+':''}${g.recentChange.toFixed(1)}${deltaUnit}</span></div><div class="gc-spark">${spark}</div></div>`;
 }
 
 function renderGrades() {
@@ -978,25 +1070,15 @@ function renderGrades() {
   const overall = computeOverallHealth([...allGrades, engagedGrade]);
   let html = '<div class="sectiontitle" style="margin-top:4px;">📋 Performance Grades</div>';
   if (overall) {
-    html += `<div class="health-hero">
-      <div class="health-grade-badge grade-${overall.letter}">${overall.letter}</div>
-      <div><div class="health-title">Overall Channel Health: ${overall.label}</div>
-      <div class="health-sub">${overall.improving} improving · ${overall.steady} steady · ${overall.declining} declining (of ${overall.total} graded)</div></div>
-    </div>`;
-  } else {
-    html += `<div class="card" style="color:#888; font-size:13px; margin-bottom:16px;">Add at least 2 snapshots to start seeing grades.</div>`;
-  }
+    html += `<div class="health-hero"><div class="health-grade-badge grade-${overall.letter}">${overall.letter}</div><div><div class="health-title">Overall Channel Health: ${overall.label}</div><div class="health-sub">${overall.improving} improving · ${overall.steady} steady · ${overall.declining} declining (of ${overall.total} graded)</div></div></div>`;
+  } else { html += `<div class="card" style="color:#888; font-size:13px; margin-bottom:16px;">Add at least 2 snapshots to start seeing grades.</div>`; }
   GRADE_GROUPS.forEach(group => {
     html += `<div class="subsectiontitle">${group.title}</div><div class="grade-grid">`;
     group.defs.forEach(d => { html += gradeCardHtml({ ...d, ...computeMetricGrade(d.key, d.type) }); });
     html += '</div>';
   });
   html += `<div class="not-available" style="margin-top:12px;">ℹ️ CTR, Thumbnail Impressions, Retention %, and New/Returning Viewer breakdowns are exclusive to YouTube Studio's UI and are not exposed via the public Analytics API — they're intentionally omitted here rather than faked.</div>`;
-  html += `<div class="grade-legend" style="margin-top:10px;">
-    <span><b style="color:#22c55e;">A</b> Excellent</span><span><b style="color:#14b8a6;">B</b> Very Good</span>
-    <span><b style="color:#eab308;">C</b> Average</span><span><b style="color:#f97316;">D</b> Needs Improvement</span>
-    <span><b style="color:#ef4444;">F</b> Catastrophic</span>
-  </div>`;
+  html += `<div class="grade-legend" style="margin-top:10px;"><span><b style="color:#22c55e;">A</b> Excellent</span><span><b style="color:#14b8a6;">B</b> Very Good</span><span><b style="color:#eab308;">C</b> Average</span><span><b style="color:#f97316;">D</b> Needs Improvement</span><span><b style="color:#ef4444;">F</b> Catastrophic</span></div>`;
   return html;
 }
 
@@ -1012,16 +1094,10 @@ function renderEngagedViewsSpotlight() {
   const ratioCls = ratioDelta==null ? 'flat' : (ratioDelta>0.5?'up':(ratioDelta<-0.5?'down':'flat'));
   const ratioColor = ratioCls==='up'?'#22c55e':(ratioCls==='down'?'#ef4444':'#94a3b8');
   const ratioArrow = ratioCls==='up'?'▲':(ratioCls==='down'?'▼':'–');
-
-  let html = `<div class="engaged-head"><div class="eicon">📡</div><div>
-    <div class="etitle">Engaged Views — The Hidden Growth Signal</div>
-    <div class="esub">Live from the API — views that pass YouTube's active-attention threshold</div>
-  </div></div>
+  let html = `<div class="engaged-head"><div class="eicon">📡</div><div><div class="etitle">Engaged Views — The Hidden Growth Signal</div><div class="esub">Live from the API — views that pass YouTube's active-attention threshold</div></div></div>
   <div class="engaged-explainer">Raw Views count anyone who saw the video at all. <b>Engaged Views only count people who actually paid attention.</b> Track the Engaged ÷ Views ratio to see if your content is genuinely improving.</div>`;
-
-  if (trendData.length < 2) {
-    html += `<div class="milestone-empty">Add at least 2 snapshots to see the Engaged Views trend and ratio chart.</div>`;
-  } else {
+  if (trendData.length < 2) { html += `<div class="milestone-empty">Add at least 2 snapshots to see the Engaged Views trend and ratio chart.</div>`; }
+  else {
     html += `<div class="sectiontitle" style="margin-top:6px;">Views vs. Engaged Views Over Time</div>${svgLineChart(trendData)}
     <div class="legend"><span><span class="dot" style="background:#ff0000;"></span>Views</span><span><span class="dot" style="background:#3ea6ff;"></span>Engaged Views</span></div>
     <div class="sectiontitle" style="margin-top:20px;">Engaged ÷ Views Ratio</div>${svgEngagedRatioChart(trendData)}
@@ -1031,42 +1107,72 @@ function renderEngagedViewsSpotlight() {
   return `<div class="card engaged-card">${html}</div>`;
 }
 
-// ================= TRAFFIC SOURCES =================
+// ================= TRAFFIC SOURCES & GEOGRAPHY (comparison versions) =================
 function renderTrafficSourcesCard(pullA, pullB) {
-  // pullA = lifetime, pullB = recent 28 days (optional comparison)
-  if (!pullA?.trafficSources?.length) {
-    return `<div class="card" style="margin-top:16px;"><div class="sectiontitle">🧭 Traffic Sources</div><div class="lt-empty">No traffic source data.</div></div>`;
+  if (!pullA?.trafficSources?.length && !pullB?.trafficSources?.length) {
+    return `<div class="card" style="margin-top:16px;"><div class="sectiontitle">🧭 Traffic Sources</div><div class="lt-empty">No traffic source data.</div><button class="btn" id="retryLtBtn" onclick="retryTrafficAndGeo('lifetime')" style="margin-top:8px;">🔁 Retry Traffic/Geo Only</button></div>`;
   }
   function renderList(pull) {
     if (!pull?.trafficSources?.length) return `<div class="lt-empty">No data for this window.</div>`;
     let html = `<div style="display:flex; flex-direction:column; gap:7px;">`;
     pull.trafficSources.slice(0,8).forEach(s => {
       const color = sourceColor(s.name);
-      html += `<div>
-        <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:3px;">
-          <span><span class="dot" style="background:${color};"></span> ${s.name}</span>
-          <span style="color:#aaa;">${s.pctViews.toFixed(1)}%</span>
-        </div>
-        <div style="background:#1f1f1f; border-radius:4px; height:7px; overflow:hidden;">
-          <div style="background:${color}; height:100%; width:${Math.max(s.pctViews,1)}%;"></div>
-        </div>
-      </div>`;
+      html += `<div><div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:3px;"><span><span class="dot" style="background:${color};"></span> ${s.name}</span><span style="color:#aaa;">${s.pctViews.toFixed(1)}%</span></div><div style="background:#1f1f1f; border-radius:4px; height:7px; overflow:hidden;"><div style="background:${color}; height:100%; width:${Math.max(s.pctViews,1)}%;"></div></div></div>`;
     });
     return html + `</div>`;
   }
-  let html = `<div class="card" style="margin-top:16px;">
+  return `<div class="card" style="margin-top:16px;">
     <div class="sectiontitle">🧭 Traffic Sources — Lifetime vs. Last 28 Days</div>
-    <div style="font-size:11px; color:#888; margin-bottom:12px;">Compare your all-time discovery mix against what's happening right now — is your recent traffic shifting toward or away from algorithm push?</div>
+    <div style="font-size:11px; color:#888; margin-bottom:12px;">Compare your all-time discovery mix against what's happening right now.</div>
     <div class="split-grid" style="grid-template-columns:1fr 1fr;">
-      <div class="split-col total"><div class="sctitle">🏆 Lifetime (${pullA.label})</div>${renderList(pullA)}</div>
+      <div class="split-col total"><div class="sctitle">🏆 Lifetime (${pullA?.label||'—'})</div>${renderList(pullA)}</div>
       <div class="split-col live" style="border-top-color:#3ea6ff;"><div class="sctitle" style="color:#3ea6ff;">📅 Last 28 Days${pullB?` (${pullB.label})`:''}</div>${renderList(pullB)}</div>
     </div>
   </div>`;
-  return html;
+}
+
+function heatColor(pct) {
+  const stops = [ { p:0, c:[30,64,175] }, { p:25, c:[59,130,246] }, { p:50, c:[234,179,8] }, { p:75, c:[249,115,22] }, { p:100, c:[239,68,68] } ];
+  let lo = stops[0], hi = stops[stops.length-1];
+  for (let i=0;i<stops.length-1;i++) { if (pct>=stops[i].p && pct<=stops[i+1].p) { lo=stops[i]; hi=stops[i+1]; break; } }
+  const range = hi.p-lo.p || 1, t = (pct-lo.p)/range;
+  const c = lo.c.map((v,i) => Math.round(v + (hi.c[i]-v)*t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+function svgWorldMap(countries) {
+  const w = 900, h = 420, pad = 10;
+  let project, backgroundSvg = '';
+  if (worldMapPathsCache) { project = worldMapPathsCache.project; backgroundSvg = worldMapPathsCache.countryPaths; }
+  else {
+    project = (lat, lon) => [pad + ((lon+180)/360) * (w-pad*2), pad + ((90-lat)/180) * (h-pad*2)];
+    for (let lon=-180; lon<=180; lon+=30) { const [x] = project(0,lon); backgroundSvg += `<line x1="${x}" y1="${pad}" x2="${x}" y2="${h-pad}" stroke="#1c2a3d" stroke-width="1"/>`; }
+    for (let lat=-90; lat<=90; lat+=30) { const [,y] = project(lat,0); backgroundSvg += `<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="#1c2a3d" stroke-width="1"/>`; }
+  }
+  const known = countries.filter(c => !c.unknown).slice(0, 30);
+  const maxViews = Math.max(1, ...known.map(c => c.views));
+  let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:100%; background:#0d1420; border-radius:10px;">
+    <defs><clipPath id="mapClip"><rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" /></clipPath></defs>
+    <g clip-path="url(#mapClip)">`;
+  svg += backgroundSvg;
+  known.forEach(c => {
+    const [x,y] = project(c.lat, c.lon);
+    const pct = (c.views/maxViews)*100, r = 5 + (c.views/maxViews)*18, color = heatColor(pct);
+    svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" opacity="0.35"/>`;
+    svg += `<circle cx="${x}" cy="${y}" r="${Math.max(r*0.4,4)}" fill="${color}" stroke="#0a0a0a" stroke-width="1.5"><title>${c.flag} ${c.name}: ${fmt(c.views)} views (${c.pctViews.toFixed(1)}%)</title></circle>`;
+  });
+  known.slice(0,8).forEach(c => { const [x,y] = project(c.lat, c.lon); svg += `<text x="${x}" y="${y-10}" text-anchor="middle" fill="#ddd" font-size="10" font-weight="600">${c.flag} ${c.code}</text>`; });
+  svg += `</g>`;
+  svg += `<rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" fill="none" stroke="#2a3f5c" stroke-width="1"/>`;
+  svg += `<text x="${pad+6}" y="${pad+16}" fill="#4a6a8a" font-size="11">${worldMapPathsCache ? '🌍 Real world map (Natural Earth 110m)' : '🌍 Loading real map…'}</text>`;
+  svg += `<g transform="translate(${w-190},${h-34})"><text x="0" y="0" fill="#8899aa" font-size="10">Low</text><rect x="30" y="-9" width="80" height="8" rx="4" fill="url(#heatGrad)"/><text x="118" y="0" fill="#8899aa" font-size="10">High</text></g>
+  <defs><linearGradient id="heatGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${heatColor(0)}"/><stop offset="50%" stop-color="${heatColor(50)}"/><stop offset="100%" stop-color="${heatColor(100)}"/></linearGradient></defs>`;
+  svg += `</svg>`;
+  return svg;
 }
 
 function renderGeographyCard(pullA, pullB) {
-  if (!pullA?.geography?.length) {
+  if (!pullA?.geography?.length && !pullB?.geography?.length) {
     return `<div class="card" style="margin-top:16px;"><div class="sectiontitle">🌍 Where Your Viewers Are</div><div class="lt-empty">No geographic data.</div></div>`;
   }
   function rankedList(geo) {
@@ -1075,126 +1181,28 @@ function renderGeographyCard(pullA, pullB) {
     let html = `<div style="display:flex; flex-direction:column; gap:6px;">`;
     geo.slice(0,10).forEach(c => {
       const color = heatColor((c.pctViews/maxPct)*100);
-      html += `<div>
-        <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:3px;">
-          <span>${c.flag} ${c.name}</span><span style="color:#aaa;">${c.pctViews.toFixed(1)}%</span>
-        </div>
-        <div style="background:#1f1f1f; border-radius:4px; height:6px; overflow:hidden;"><div style="background:${color}; height:100%; width:${Math.max(c.pctViews,1)}%;"></div></div>
-      </div>`;
+      html += `<div><div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:3px;"><span>${c.flag} ${c.name}</span><span style="color:#aaa;">${c.pctViews.toFixed(1)}%</span></div><div style="background:#1f1f1f; border-radius:4px; height:6px; overflow:hidden;"><div style="background:${color}; height:100%; width:${Math.max(c.pctViews,1)}%;"></div></div></div>`;
     });
     return html + `</div>`;
   }
-  console.log('renderGeographyCard called with pullB:', pullB ? pullB.label : 'MISSING/NULL');
-  let html = `<div class="card" style="margin-top:16px;">
-    <div class="sectiontitle">🌍 Where Your Viewers Are — ${pullA.label}</div>
+  const mapSource = pullA?.geography?.length ? pullA : pullB;
+  return `<div class="card" style="margin-top:16px;">
+    <div class="sectiontitle">🌍 Where Your Viewers Are — ${mapSource?.label||''}</div>
     <div style="font-size:11px; color:#888; margin-bottom:10px;">Live country-level data from the YouTube Analytics API. Pin size &amp; color = view volume.</div>
-    ${svgWorldMap(pullA.geography)}
+    ${svgWorldMap(mapSource?.geography || [])}
     <div class="split-grid" style="grid-template-columns:1fr 1fr; margin-top:16px;">
-      <div class="split-col total"><div class="sctitle">🏆 Lifetime Top Countries</div>${rankedList(pullA.geography)}</div>
+      <div class="split-col total"><div class="sctitle">🏆 Lifetime Top Countries</div>${rankedList(pullA?.geography)}</div>
       <div class="split-col live" style="border-top-color:#3ea6ff;"><div class="sctitle" style="color:#3ea6ff;">📅 Last 28 Days Top Countries</div>${rankedList(pullB?.geography)}</div>
     </div>
+    ${(!pullA?.trafficSources?.length && !pullA?.geography?.length) ? '' : `<div style="margin-top:12px; text-align:right;"><button class="btn" id="retry28Btn" onclick="retryTrafficAndGeo('recent28')">🔁 Retry Traffic/Geo Only</button></div>`}
   </div>`;
-  return html;
 }
 
-function renderTrafficShiftTable() {
-  if (state.pulls.length < 2) return '';
-  const first = state.pulls[0], last = state.pulls[state.pulls.length-1];
-  if (!first.trafficSources?.length || !last.trafficSources?.length) return '';
-  const nameSet = new Set();
-  [...first.trafficSources, ...last.trafficSources].forEach(s => nameSet.add(s.name));
-  const rows = Array.from(nameSet).map(name => {
-    const f = first.trafficSources.find(s=>s.name===name), l = last.trafficSources.find(s=>s.name===name);
-    const fp = f?.pctViews??0, lp = l?.pctViews??0;
-    return { name, fp, lp, diff: lp-fp };
-  }).sort((a,b) => b.lp-a.lp);
-  let html = `<div class="card" style="margin-top:16px;">
-    <div class="sectiontitle">Traffic Source Shift — "${first.label}" → "${last.label}"</div>
-    <table><thead><tr><th>Source</th><th class="r">${first.label}</th><th class="r">${last.label}</th><th class="r">Shift</th></tr></thead><tbody>`;
-  rows.forEach(r => {
-    const cls = r.diff>1?'up':(r.diff<-1?'down':'flat');
-    const arrow = cls==='up'?'▲':(cls==='down'?'▼':'–');
-    html += `<tr><td><span class="dot" style="background:${sourceColor(r.name)};"></span> ${r.name}</td>
-      <td class="r">${r.fp.toFixed(1)}%</td><td class="r">${r.lp.toFixed(1)}%</td>
-      <td class="r"><span class="gc-delta ${cls}">${arrow} ${r.diff>0?'+':''}${r.diff.toFixed(1)}pp</span></td></tr>`;
-  });
-  html += `</tbody></table></div>`;
-  return html;
-}
-
-// ================= GEOGRAPHY (flat map + ranked list) =================
-function heatColor(pct) {
-  // 0% -> deep blue, 100% -> hot red/orange, smooth interpolation
-  const stops = [
-    { p:0, c:[30,64,175] }, { p:25, c:[59,130,246] }, { p:50, c:[234,179,8] },
-    { p:75, c:[249,115,22] }, { p:100, c:[239,68,68] },
-  ];
-  let lo = stops[0], hi = stops[stops.length-1];
-  for (let i=0;i<stops.length-1;i++) { if (pct>=stops[i].p && pct<=stops[i+1].p) { lo=stops[i]; hi=stops[i+1]; break; } }
-  const range = hi.p-lo.p || 1;
-  const t = (pct-lo.p)/range;
-  const c = lo.c.map((v,i) => Math.round(v + (hi.c[i]-v)*t));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
-}
-
-function svgWorldMap(countries) {
-  const w = 900, h = 420, pad = 10;
-  let project;
-  let backgroundSvg = '';
-
-  if (worldMapPathsCache) {
-    project = worldMapPathsCache.project;
-    backgroundSvg = worldMapPathsCache.countryPaths;
-  } else {
-    project = (lat, lon) => [pad + ((lon+180)/360) * (w-pad*2), pad + ((90-lat)/180) * (h-pad*2)];
-    for (let lon=-180; lon<=180; lon+=30) { const [x] = project(0,lon); backgroundSvg += `<line x1="${x}" y1="${pad}" x2="${x}" y2="${h-pad}" stroke="#1c2a3d" stroke-width="1"/>`; }
-    for (let lat=-90; lat<=90; lat+=30) { const [,y] = project(lat,0); backgroundSvg += `<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="#1c2a3d" stroke-width="1"/>`; }
-  }
-
-  const known = countries.filter(c => !c.unknown).slice(0, 30);
-  const maxViews = Math.max(1, ...known.map(c => c.views));
-
-  let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:100%; background:#0d1420; border-radius:10px;">
-    <defs>
-      <clipPath id="mapClip"><rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" /></clipPath>
-    </defs>
-    <g clip-path="url(#mapClip)">`;
-  svg += backgroundSvg;
-  svg += `<rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" fill="none" stroke="#2a3f5c" stroke-width="1"/>`;
-  svg += `<text x="${pad+6}" y="${pad+16}" fill="#4a6a8a" font-size="11">${worldMapPathsCache ? '🌍 Real world map (Natural Earth 110m)' : '🌍 Loading real map… showing stylized grid for now'}</text>`;
-
-  known.forEach(c => {
-    const [x,y] = project(c.lat, c.lon);
-    const pct = (c.views/maxViews)*100;
-    const r = 5 + (c.views/maxViews)*18;
-    const color = heatColor(pct);
-    svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" opacity="0.35"/>`;
-    svg += `<circle cx="${x}" cy="${y}" r="${Math.max(r*0.4,4)}" fill="${color}" stroke="#0a0a0a" stroke-width="1.5"><title>${c.flag} ${c.name}: ${fmt(c.views)} views (${c.pctViews.toFixed(1)}%)</title></circle>`;
-  });
-  known.slice(0,8).forEach(c => {
-    const [x,y] = project(c.lat, c.lon);
-    svg += `<text x="${x}" y="${y-10}" text-anchor="middle" fill="#ddd" font-size="10" font-weight="600">${c.flag} ${c.code}</text>`;
-  });
-  svg += `</g>`;
-  svg += `<rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" fill="none" stroke="#2a3f5c" stroke-width="1"/>`;
-  svg += `<text x="${pad+6}" y="${pad+16}" fill="#4a6a8a" font-size="11">${worldMapPathsCache ? '🌍 Real world map (Natural Earth 110m)' : '🌍 Loading real map… showing stylized grid for now'}</text>`;
-  svg += `<g transform="translate(${w-190},${h-34})">
-    <text x="0" y="0" fill="#8899aa" font-size="10">Low</text>
-    <rect x="30" y="-9" width="80" height="8" rx="4" fill="url(#heatGrad)"/>
-    <text x="118" y="0" fill="#8899aa" font-size="10">High</text>
-  </g>
-  <defs><linearGradient id="heatGrad" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0%" stop-color="${heatColor(0)}"/><stop offset="50%" stop-color="${heatColor(50)}"/><stop offset="100%" stop-color="${heatColor(100)}"/>
-  </linearGradient></defs>`;
-  svg += `</svg>`;
-  return svg;
-}
-
-function renderTrafficShiftTable() {
+// ================= CONTENT SPLIT =================
+function renderContentSplit(totals, liveTotals, shortTotals) {
   function col(cls, icon, title, t) {
     if (!t) return `<div class="split-col ${cls}"><div class="sctitle">${icon} ${title}</div><div style="color:#666; font-size:12px;">No data</div></div>`;
-    return `<div class="split-col ${cls}">
-      <div class="sctitle">${icon} ${title}</div>
+    return `<div class="split-col ${cls}"><div class="sctitle">${icon} ${title}</div>
       <div class="split-row"><span>Views</span><span>${fmt(t.views)}</span></div>
       <div class="split-row"><span>Watch Time</span><span>${fmt(t.watchTimeHours)} hrs</span></div>
       <div class="split-row"><span>Subs Gained</span><span>${fmt(t.subscribers)}</span></div>
@@ -1212,7 +1220,7 @@ function renderTrafficShiftTable() {
 function renderLifetimeArea() {
   const area = document.getElementById('lifetimeArea');
   const lt = state.lifetime;
-  if (!lt) { area.innerHTML = `<div class="lt-empty">Click "Refresh from API" to load your lifetime baseline.</div>`; return; }
+  if (!lt) { area.innerHTML = `<div class="lt-empty">Click "Refresh from API" to load your lifetime baseline.</div>`; document.getElementById('lifetimeExtras').innerHTML = ''; return; }
   let html = `<div style="font-size:12px; color:#999; margin:8px 0 12px;">Range: <b style="color:#ddd;">${lt.rangeLabel}</b> · ${lt.daysCovered} days of real daily data</div>`;
   html += renderContentSplit(lt.totals, lt.liveTotals, lt.shortTotals);
   if (lt.totals.totalSubscribers != null) html += `<div class="lt-compare">Total subscribers as of this refresh: <b>${fmt(lt.totals.totalSubscribers)}</b></div>`;
@@ -1222,7 +1230,6 @@ function renderLifetimeArea() {
 
 // ================= MONETIZATION MILESTONE TRACKER =================
 function setMonetizationTarget(hrs) { state.monetizationTargetHours = hrs; render(); }
-
 function computeTrailing12MonthHours() {
   if (!state.lifetime?.watchTimeDailySeries?.length) return null;
   const series = state.lifetime.watchTimeDailySeries;
@@ -1233,7 +1240,6 @@ function computeTrailing12MonthHours() {
   const total = included.reduce((a,p)=>a+(p.value||0),0);
   return { total, asOf: sorted[sorted.length-1].date, from: included[0]?.date, days: included.length };
 }
-
 function computeMonetizationProgress() {
   const latestPull = state.pulls[state.pulls.length-1];
   const subs = latestPull?.totals?.totalSubscribers ?? state.channelInfo?.subscriberCount ?? null;
@@ -1242,33 +1248,20 @@ function computeMonetizationProgress() {
   const isTrailing = !!trailing;
   if (subs == null && watchHours == null) return null;
   const subsTarget = 1000, hoursTarget = state.monetizationTargetHours;
-  return {
-    subs, subsTarget, subsPct: subs!=null?Math.min(100,(subs/subsTarget)*100):null,
-    watchHours, hoursTarget, hoursPct: watchHours!=null?Math.min(100,(watchHours/hoursTarget)*100):null,
-    isTrailing, trailing,
-  };
+  return { subs, subsTarget, subsPct: subs!=null?Math.min(100,(subs/subsTarget)*100):null, watchHours, hoursTarget, hoursPct: watchHours!=null?Math.min(100,(watchHours/hoursTarget)*100):null, isTrailing, trailing };
 }
-
 function svgHBar(current, target, colorA, colorB, id) {
-  const w = 600, h = 40;
-  const pct = target ? Math.min(1, current/target) : 0;
-  const barW = pct * w;
-  const gradId = 'grad_' + id;
-  let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:100%; display:block;">
-    <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${colorA}"/><stop offset="100%" stop-color="${colorB}"/></linearGradient></defs>
-    <rect x="0" y="8" width="${w}" height="24" rx="6" fill="#1f1f1f"/>
-    <rect x="0" y="8" width="${Math.max(barW,6)}" height="24" rx="6" fill="url(#${gradId})"/>`;
+  const w = 600, h = 40, pct = target ? Math.min(1, current/target) : 0, barW = pct * w, gradId = 'grad_' + id;
+  let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:100%; display:block;"><defs><linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${colorA}"/><stop offset="100%" stop-color="${colorB}"/></linearGradient></defs><rect x="0" y="8" width="${w}" height="24" rx="6" fill="#1f1f1f"/><rect x="0" y="8" width="${Math.max(barW,6)}" height="24" rx="6" fill="url(#${gradId})"/>`;
   [0.25,0.5,0.75].forEach(t => { svg += `<line x1="${t*w}" y1="8" x2="${t*w}" y2="32" stroke="#0a0a0a" stroke-width="1" opacity="0.4"/>`; });
   svg += `<text x="${Math.max(barW-6,60)}" y="24" text-anchor="end" font-size="12" font-weight="700" fill="#fff">${pct>=0.12? (pct*100).toFixed(0)+'%':''}</text></svg>`;
   return svg;
 }
-
 function renderMilestoneTracker() {
   const m = computeMonetizationProgress();
   let html = `<div class="sectiontitle">🎯 Monetization Milestone Tracker</div>`;
-  if (!m) {
-    html += `<div class="milestone-empty">Refresh your Lifetime baseline and fetch at least one snapshot to see progress here.</div>`;
-  } else {
+  if (!m) { html += `<div class="milestone-empty">Refresh your Lifetime baseline and fetch at least one snapshot to see progress here.</div>`; }
+  else {
     html += `<div class="milestone-row"><div class="milestone-head"><span>👥 Subscribers: &nbsp;</span><b>${m.subs!=null?fmt(m.subs):'—'} / ${fmt(m.subsTarget)}</b></div>`;
     if (m.subsPct != null) html += `<div class="hbar-wrap">${svgHBar(m.subs, m.subsTarget, '#a855f7', '#ec4899', 'subs')}</div><div class="hbar-labels"><span>0</span><span>${fmt(m.subsTarget)}</span></div>`;
     html += `</div>`;
@@ -1290,7 +1283,6 @@ function renderMilestoneTracker() {
 function getQuarterMonths(year, q) { const sm=(q-1)*3; return [0,1,2].map(i=>new Date(year,sm+i,1)); }
 function currentQuarter() { const n=new Date(); return { year:n.getFullYear(), q:Math.floor(n.getMonth()/3)+1 }; }
 function quarterKey(year,q){ return `${year}-Q${q}`; }
-
 function suggestQuarterDefaults(year, q, m) {
   const months = getQuarterMonths(year, q);
   const currentSubs = m?.subs ?? 0, currentHours = m?.watchHours ?? 0;
@@ -1315,7 +1307,6 @@ function updateQuarterTarget(year,q,idx,field,value){ const plan=getOrCreateQuar
 function resetQuarterToSuggested(year,q){ const m=computeMonetizationProgress(); state.quarterPlans[quarterKey(year,q)]={targets:suggestQuarterDefaults(year,q,m)}; saveQuarterPlans(); render(); }
 function changeQuarterSelector(field,value){ if(!state.selectedQuarter) state.selectedQuarter=currentQuarter(); state.selectedQuarter[field]=parseInt(value,10); render(); }
 function navQuarter(dir){ if(!state.selectedQuarter) state.selectedQuarter=currentQuarter(); let {year,q}=state.selectedQuarter; q+=dir; if(q>4){q=1;year++;} else if(q<1){q=4;year--;} state.selectedQuarter={year,q}; render(); }
-
 function renderMilestonePlan(m) {
   if (!state.selectedQuarter) state.selectedQuarter = currentQuarter();
   const { year, q } = state.selectedQuarter;
@@ -1336,22 +1327,13 @@ function renderMilestonePlan(m) {
   html += `<div class="milestone-plan-grid">`;
   months.forEach((date,i) => {
     const t = plan.targets[i];
-    const subsPct = t.subs>0?Math.min(100,(currentSubs/t.subs)*100):100;
-    const hoursPct = t.hours>0?Math.min(100,(currentHours/t.hours)*100):100;
+    const subsPct = t.subs>0?Math.min(100,(currentSubs/t.subs)*100):100, hoursPct = t.hours>0?Math.min(100,(currentHours/t.hours)*100):100;
     const label = date.toLocaleDateString('en-US',{month:'long',year:'numeric'});
-    const subsColor = subsPct>=90?'#22c55e':subsPct>=50?'#eab308':'#ef4444';
-    const hoursColor = hoursPct>=90?'#22c55e':hoursPct>=50?'#eab308':'#ef4444';
-    const subsArrow = subsPct>=90?'▲':subsPct>=50?'●':'▼';
-    const hoursArrow = hoursPct>=90?'▲':hoursPct>=50?'●':'▼';
+    const subsColor = subsPct>=90?'#22c55e':subsPct>=50?'#eab308':'#ef4444', hoursColor = hoursPct>=90?'#22c55e':hoursPct>=50?'#eab308':'#ef4444';
+    const subsArrow = subsPct>=90?'▲':subsPct>=50?'●':'▼', hoursArrow = hoursPct>=90?'▲':hoursPct>=50?'●':'▼';
     html += `<div class="mm-month-block"><div class="mm-month-title">${label}</div><div class="mm-stat-row">
-      <div class="mm-stat"><div class="lbl">👥 Subs Target</div>
-        <input type="number" class="mm-input-val" value="${t.subs}" onchange="updateQuarterTarget(${year},${q},${i},'subs',this.value)">
-        <div class="mm-delta-line" style="color:${subsColor};">${subsArrow} Currently ${fmt(currentSubs)} · ${subsPct.toFixed(0)}% there</div>
-        <div class="mm-track"><div class="mm-fill subs" style="width:${Math.max(subsPct,3)}%;"></div></div></div>
-      <div class="mm-stat"><div class="lbl">⏱ Hours Target</div>
-        <input type="number" class="mm-input-val" value="${t.hours}" onchange="updateQuarterTarget(${year},${q},${i},'hours',this.value)">
-        <div class="mm-delta-line" style="color:${hoursColor};">${hoursArrow} Currently ${fmt(currentHours)} · ${hoursPct.toFixed(0)}% there</div>
-        <div class="mm-track"><div class="mm-fill hours" style="width:${Math.max(hoursPct,3)}%;"></div></div></div>
+      <div class="mm-stat"><div class="lbl">👥 Subs Target</div><input type="number" class="mm-input-val" value="${t.subs}" onchange="updateQuarterTarget(${year},${q},${i},'subs',this.value)"><div class="mm-delta-line" style="color:${subsColor};">${subsArrow} Currently ${fmt(currentSubs)} · ${subsPct.toFixed(0)}% there</div><div class="mm-track"><div class="mm-fill subs" style="width:${Math.max(subsPct,3)}%;"></div></div></div>
+      <div class="mm-stat"><div class="lbl">⏱ Hours Target</div><input type="number" class="mm-input-val" value="${t.hours}" onchange="updateQuarterTarget(${year},${q},${i},'hours',this.value)"><div class="mm-delta-line" style="color:${hoursColor};">${hoursArrow} Currently ${fmt(currentHours)} · ${hoursPct.toFixed(0)}% there</div><div class="mm-track"><div class="mm-fill hours" style="width:${Math.max(hoursPct,3)}%;"></div></div></div>
     </div></div>`;
   });
   html += `</div></div>`;
@@ -1368,10 +1350,8 @@ const METRIC_TIPS = {
   avgViewDurationSec: { improve:'People leave early — tighten your intro.', positive:'People are watching longer — your pacing change is working.', sustain:'Duration is consistent — try trimming dead air.' },
   engagementRate: { improve:'Low likes-to-views ratio — try an on-screen "like if..." prompt.', positive:'High engagement — your audience is actively responding.', sustain:'Engagement is steady — try asking viewers a direct question.' },
 };
-
 function computePerformanceSummary() {
-  const grades = [...ALL_GRADE_DEFS, {key:'engagedViews',label:'Engaged Views',icon:'📡',type:'count'}]
-    .map(d => ({ ...d, ...computeMetricGrade(d.key, d.type) })).filter(g => !g.insufficient);
+  const grades = [...ALL_GRADE_DEFS, {key:'engagedViews',label:'Engaged Views',icon:'📡',type:'count'}].map(d => ({ ...d, ...computeMetricGrade(d.key, d.type) })).filter(g => !g.insufficient);
   return {
     positives: grades.filter(g=>g.letter==='A'||g.letter==='B').sort((a,b)=>b.combined-a.combined).slice(0,5),
     improve: grades.filter(g=>g.letter==='D'||g.letter==='F').sort((a,b)=>a.combined-b.combined).slice(0,5),
@@ -1381,8 +1361,7 @@ function computePerformanceSummary() {
 }
 function summaryItemHtml(g, rank, kind) {
   const tip = METRIC_TIPS[g.key]?.[kind] || '';
-  return `<div class="summary-item"><div class="summary-rank" style="color:${gradeColor(g.letter)};">#${rank}</div>
-    <div class="summary-body"><b>${g.icon} ${g.label} <span style="color:${gradeColor(g.letter)};">(${g.letter})</span></b><div class="tip">${tip}</div></div></div>`;
+  return `<div class="summary-item"><div class="summary-rank" style="color:${gradeColor(g.letter)};">#${rank}</div><div class="summary-body"><b>${g.icon} ${g.label} <span style="color:${gradeColor(g.letter)};">(${g.letter})</span></b><div class="tip">${tip}</div></div></div>`;
 }
 function renderPerformanceSummary() {
   const s = computePerformanceSummary();
@@ -1404,9 +1383,11 @@ function renderPerformanceSummary() {
 function render() {
   if (state.channelInfo) {
     document.getElementById('logoContainer').innerHTML = state.channelInfo.thumbnail ? `<img src="${state.channelInfo.thumbnail}">` : '▶';
-    document.getElementById('channelNameLabel').innerHTML = `${state.channelInfo.title} <span class="version-badge">G.01 · Live API</span>`;
+    document.getElementById('channelNameLabel').textContent = state.channelInfo.title;
     document.getElementById('pullCount').textContent = `${state.pulls.length} snapshot${state.pulls.length!==1?'s':''} · connected to YouTube API`;
   }
+  document.getElementById('versionBadge').textContent = APP_VERSION;
+  document.getElementById('versionTooltip').innerHTML = `${state.channelInfo?.title || 'HANGAR 78'} Analytics Tracker<br>Version ${APP_VERSION} · Live API<br>Deployed via GitHub Pages`;
 
   const actions = document.getElementById('headerActions');
   actions.innerHTML = '';
@@ -1417,10 +1398,10 @@ function render() {
     actions.innerHTML += `<button class="btn danger" onclick="openClearModal()">🗑 Reset</button>`;
     actions.innerHTML += `<button class="btn" onclick="handleSignOut()">Sign Out</button>`;
   }
-
   if (!state.isSignedIn) return;
 
   renderLifetimeArea();
+  renderCompetitorComparison();
 
   const dash = document.getElementById('dashboardArea');
   if (!state.pulls.length) { dash.innerHTML = `<div class="empty">No snapshots yet — use the panel above to fetch your first one.</div>`; return; }
@@ -1431,10 +1412,7 @@ function render() {
   function kpi(label, val, prevVal, suffix, formatFn, disabled) {
     const d = fmtDelta(val, prevVal);
     let deltaHtml = '';
-    if (d !== null) {
-      const cls = d>0?'up':d<0?'down':'flat'; const arrow = d>0?'▲':d<0?'▼':'–';
-      deltaHtml = `<div class="delta ${cls}">${arrow} ${d>0?'+':''}${formatFn?formatFn(Math.abs(d)):fmt(d)+(suffix||'')} vs last</div>`;
-    }
+    if (d !== null) { const cls = d>0?'up':d<0?'down':'flat'; const arrow = d>0?'▲':d<0?'▼':'–'; deltaHtml = `<div class="delta ${cls}">${arrow} ${d>0?'+':''}${formatFn?formatFn(Math.abs(d)):fmt(d)+(suffix||'')} vs last</div>`; }
     const displayVal = disabled ? 'N/A' : (val==null ? '—' : (formatFn ? formatFn(val) : fmt(val)+(suffix||'')));
     return `<div class="kpi ${disabled?'disabled-metric':''}"><div class="lbl">${label}: &nbsp;</div><div class="val">${displayVal}</div>${disabled?'':deltaHtml}</div>`;
   }
@@ -1468,8 +1446,7 @@ function render() {
   const videoMap = {};
   state.pulls.forEach(p => (p.videos||[]).forEach(v => {
     if (!videoMap[v.id]) videoMap[v.id] = { id:v.id, title:v.title, isLive:v.isLive, history:[] };
-    videoMap[v.id].history.push({ label:p.label, views:v.views });
-    videoMap[v.id].title = v.title; videoMap[v.id].isLive = v.isLive;
+    videoMap[v.id].history.push({ label:p.label, views:v.views }); videoMap[v.id].title = v.title; videoMap[v.id].isLive = v.isLive;
   }));
   const tracked = Object.values(videoMap).sort((a,b) => (b.history[b.history.length-1].views||0)-(a.history[a.history.length-1].views||0)).slice(0,15);
   if (tracked.length) {
@@ -1479,13 +1456,10 @@ function render() {
       if (h.length>=2) trend = last>first ? '<span style="color:#4caf50;">▲ improving</span>' : last<first ? '<span style="color:#ff5252;">▼ declining</span>' : '<span style="color:#888;">– flat</span>';
       return `<tr><td>${v.isLive?'🔴 ':''}${v.title}</td><td class="r">${fmt(last)}</td><td class="r">${trend}</td></tr>`;
     }).join('');
-    html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Video-level tracker (top 15 by views)</div>
-      <table><thead><tr><th>Video</th><th class="r">Latest Views</th><th class="r">Trend</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Video-level tracker (top 15 by views)</div><table><thead><tr><th>Video</th><th class="r">Latest Views</th><th class="r">Trend</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
-  let histRows = [...state.pulls].reverse().map(p => `
-    <div class="hist-row"><div><strong>${p.label}</strong><span class="meta">${fmt(p.totals?.views)} views · ${fmt(p.totals?.subscribers)} subs gained${p.totals?.totalSubscribers!=null?' · '+fmt(p.totals.totalSubscribers)+' total subs':''}</span></div>
-    <button onclick="deletePull('${p.id}')">🗑</button></div>`).join('');
+  let histRows = [...state.pulls].reverse().map(p => `<div class="hist-row"><div><strong>${p.label}</strong><span class="meta">${fmt(p.totals?.views)} views · ${fmt(p.totals?.subscribers)} subs gained${p.totals?.totalSubscribers!=null?' · '+fmt(p.totals.totalSubscribers)+' total subs':''}</span></div><button onclick="deletePull('${p.id}')">🗑</button></div>`).join('');
 
   html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">📝 Channel Performance Summary</div>${renderPerformanceSummary()}</div>`;
   html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Snapshot history</div>${histRows}</div>`;
