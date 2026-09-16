@@ -502,7 +502,7 @@ async function fetchTrafficSources(start, end) {
   console.log(`[fetchTrafficSources] Requesting range: ${start} to ${end}`);
   const rep = await queryAnalytics({
     ids: 'channel==MINE', startDate: start, endDate: end,
-    metrics: 'views,estimatedMinutesWatched', dimensions: 'insightTrafficSourceType', sort: '-views',
+    metrics: 'views,estimatedMinutesWatched', dimensions: 'insightTrafficSourceType',
   });
   const rows = rowsToObjects(rep);
   const totalViews = rows.reduce((a,r) => a + (r.views||0), 0);
@@ -547,7 +547,7 @@ function countryInfo(code) { return COUNTRY_INFO[code] || { name: code, flag: 'ð
 async function fetchGeography(start, end) {
   const rep = await queryAnalytics({
     ids: 'channel==MINE', startDate: start, endDate: end,
-    metrics: 'views,estimatedMinutesWatched', dimensions: 'country', sort: '-views', maxResults: 50,
+    metrics: 'views,estimatedMinutesWatched', dimensions: 'country', maxResults: 50,
   });
   const rows = rowsToObjects(rep);
   const totalViews = rows.reduce((a,r) => a + (r.views||0), 0);
