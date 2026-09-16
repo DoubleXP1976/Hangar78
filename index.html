@@ -621,8 +621,8 @@ async function fetchAndBuildPull(start, end, label) {
     fetchPeriodTotals(start, end),
     fetchDailySeries(start, end),
     fetchTopVideosWithSplit(start, end),
-    fetchTrafficSources(start, end).catch(() => []),
-    fetchGeography(start, end).catch(() => []),
+    fetchTrafficSources(start, end).catch((e) => { console.error('Traffic Sources fetch failed:', e?.result?.error || e); return []; }),
+    fetchGeography(start, end).catch((e) => { console.error('Geography fetch failed:', e?.result?.error || e); return []; }),
   ]);
   const subsOverride = document.getElementById('subsOverrideInput')?.value;
   totals.totalSubscribers = subsOverride ? parseFloat(subsOverride) : (state.channelInfo?.subscriberCount ?? null);
