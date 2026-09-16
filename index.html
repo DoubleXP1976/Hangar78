@@ -446,6 +446,17 @@ const TRAFFIC_SOURCE_LABELS = {
 };
 function trafficLabel(code) { return TRAFFIC_SOURCE_LABELS[code] || code; }
 
+const SOURCE_COLORS = {
+  'Suggested videos': '#a855f7', 'Browse features': '#f97316', 'YouTube search': '#14b8a6',
+  'External': '#ec4899', 'Direct or unknown': '#94a3b8', 'Shorts feed': '#3ea6ff',
+  'Notifications': '#eab308', 'Playlists': '#22c55e', 'Channel pages': '#ef4444',
+  'Other YouTube features': '#78716c', 'Advertising': '#60a5fa', 'Sound pages': '#8b5cf6',
+  'End screens': '#06b6d4', 'Cards and annotations': '#84cc16', 'Playlist page': '#22c55e',
+  'Hashtag pages': '#d946ef', 'Campaign card': '#fb923c', 'Promoted content': '#38bdf8',
+  'Live redirect': '#f43f5e', 'Subscriber feed': '#4ade80',
+};
+function sourceColor(name) { return SOURCE_COLORS[name] || '#666'; }
+
 async function fetchTrafficSources(start, end) {
   const rep = await queryAnalytics({
     ids: 'channel==MINE', startDate: start, endDate: end,
