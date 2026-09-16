@@ -277,6 +277,7 @@
       <div class="compare-search-row">
         <input type="text" id="competitorHandleInput" placeholder="@theirusername">
         <button class="btn primary" onclick="runCompetitorComparison()" id="compareBtn">Compare</button>
+        <button class="btn" onclick="resetCompetitorComparison()" id="compareResetBtn" style="display:none;">↺ Reset</button>
       </div>
       <div id="compareStatus" class="status"></div>
       <div id="compareResults"></div>
@@ -355,14 +356,17 @@ let worldMapPathsCache = null;
 async function loadWorldMapPaths() {
   try {
     const w = 900, h = 420;
-    const topo = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(r => r.json());
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout so a slow/mobile connection can't hang initial render
+    const topo = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json', { signal: controller.signal }).then(r => r.json());
+    clearTimeout(timeoutId);
     const geo = topojson.feature(topo, topo.objects.countries);
     const projection = d3.geoEquirectangular().fitSize([w-20, h-20], geo).translate([w/2, h/2]);
     const pathGen = d3.geoPath(projection);
     const countryPaths = geo.features.map(f => `<path d="${pathGen(f)}" fill="#16223a" stroke="#28405e" stroke-width="0.6"/>`).join('');
     worldMapPathsCache = { countryPaths, project: (lat, lon) => projection([lon, lat]), w, h };
   } catch (e) {
-    console.error('World map load failed, falling back to grid:', e);
+    console.error('World map load failed or timed out, falling back to grid:', e);
     worldMapPathsCache = null;
   } finally {
     render();
@@ -838,10 +842,19 @@ function setCompareStatus(type, msg) {
   el.innerHTML = `<span class="${type==='err'?'err':type==='info'?'info':'ok'}">${type==='info'?'<span class="spinner"></span> ':''}${msg}</span>`;
 }
 
+function resetCompetitorComparison() {
+  state.competitorResult = null;
+  document.getElementById('competitorHandleInput').value = '';
+  setCompareStatus(null, '');
+  render();
+}
+
 function renderCompetitorComparison() {
   const c = state.competitorResult;
   const el = document.getElementById('compareResults');
-  if (!c) { el.innerHTML = ''; return; }
+  const resetBtn = document.getElementById('compareResetBtn');
+  if (!c) { el.innerHTML = ''; if (resetBtn) resetBtn.style.display = 'none'; return; }
+  if (resetBtn) resetBtn.style.display = 'inline-flex';
   const { mine, theirs } = c;
   const myAvgViews28 = mine.recent28.count ? mine.recent28.totalViews / mine.recent28.count : null;
   const theirAvgViews28 = theirs.recent28.count ? theirs.recent28.totalViews / theirs.recent28.count : null;
@@ -1409,11 +1422,12 @@ function render() {
   }
   if (!state.isSignedIn) return;
 
+  const dash = document.getElementById('dashboardArea');
+
   function safeRender(label, fn) {
     try { fn(); }
     catch(e) {
       console.error(`[render error in ${label}]`, e);
-      const dash = document.getElementById('dashboardArea');
       if (dash) dash.innerHTML += `<div class="card" style="border-color:#ef4444;"><div style="color:#ef4444; font-size:12px;">⚠️ A section (${label}) failed to render: ${e.message}. Other sections below should still work — screenshot this for troubleshooting.</div></div>`;
     }
   }
@@ -1421,7 +1435,6 @@ function render() {
   safeRender('Lifetime Area', renderLifetimeArea);
   safeRender('Competitor Comparison', renderCompetitorComparison);
 
-  const dash = document.getElementById('dashboardArea');
   if (!state.pulls.length) { dash.innerHTML = `<div class="empty">No snapshots yet — use the panel above to fetch your first one.</div>`; return; }
 
   const latest = state.pulls[state.pulls.length-1];
