@@ -1069,6 +1069,7 @@ function renderGeographyCard(pullA, pullB) {
     });
     return html + `</div>`;
   }
+  console.log('renderGeographyCard called with pullB:', pullB ? pullB.label : 'MISSING/NULL');
   let html = `<div class="card" style="margin-top:16px;">
     <div class="sectiontitle">🌍 Where Your Viewers Are — ${pullA.label}</div>
     <div style="font-size:11px; color:#888; margin-bottom:10px;">Live country-level data from the YouTube Analytics API. Pin size &amp; color = view volume.</div>
