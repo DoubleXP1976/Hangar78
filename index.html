@@ -455,8 +455,16 @@ async function getChannelInfo() {
 
 async function queryAnalytics(params) {
   return apiCallWithRetry(async () => {
-    const res = await gapi.client.youtubeAnalytics.reports.query(params);
-    return res.result;
+    console.log('[queryAnalytics] Sending params:', JSON.stringify(params));
+    try {
+      const res = await gapi.client.youtubeAnalytics.reports.query(params);
+      return res.result;
+    } catch(e) {
+      console.error('[queryAnalytics] RAW error object:', e);
+      console.error('[queryAnalytics] error.result:', JSON.stringify(e?.result));
+      console.error('[queryAnalytics] error.body:', e?.body);
+      throw e;
+    }
   });
 }
 
@@ -491,6 +499,7 @@ const SOURCE_COLORS = {
 function sourceColor(name) { return SOURCE_COLORS[name] || '#666'; }
 
 async function fetchTrafficSources(start, end) {
+  console.log(`[fetchTrafficSources] Requesting range: ${start} to ${end}`);
   const rep = await queryAnalytics({
     ids: 'channel==MINE', startDate: start, endDate: end,
     metrics: 'views,estimatedMinutesWatched', dimensions: 'insightTrafficSourceType', sort: '-views',
@@ -615,20 +624,6 @@ async function fetchDailySeries(start, end) {
   });
   const rows = rowsToObjects(rep);
   return rows.map(r => ({ date: r.day, views: r.views, engagedViews: r.engagedViews, watchTimeHours: r.estimatedMinutesWatched/60 }));
-}
-
-async function fetchTrafficSources(start, end) {
-  const rep = await queryAnalytics({
-    ids: 'channel==MINE', startDate: start, endDate: end,
-    metrics: 'views,estimatedMinutesWatched', dimensions: 'insightTrafficSourceType', sort: '-views',
-  });
-  const rows = rowsToObjects(rep);
-  const totalViews = rows.reduce((a,r) => a + (r.views||0), 0);
-  return rows.map(r => ({
-    name: trafficLabel(r.insightTrafficSourceType),
-    views: r.views, watchTimeHours: r.estimatedMinutesWatched/60,
-    pctViews: totalViews ? (r.views/totalViews)*100 : 0,
-  })).sort((a,b) => b.views - a.views);
 }
 
 async function fetchTopVideosWithSplit(start, end) {
