@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Channel Analytics Tracker</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0a0a0a; color:#fff; font-family:Roboto,Arial,sans-serif; }
+  .header { position:sticky; top:0; z-index:10; background:rgba(10,10,10,.95); backdrop-filter:blur(6px); border-bottom:1px solid #262626; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .brand .logo { background:#ff0000; border-radius:8px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:bold; }
+  .brand .logo-img { width:32px; height:32px; border-radius:8px; object-fit:cover; }
+  .brand .title { font-weight:600; font-size:15px; line-height:1.2; }
+  .brand-name-btn { background:none; border:none; color:inherit; font:inherit; cursor:pointer; padding:0; text-align:left; }
+  .brand-name-btn:hover { text-decoration:underline; }
+  .brand .sub { font-size:11px; color:#888; line-height:1.2; }
+  .btn { background:#262626; border:none; color:#ccc; padding:6px 10px; border-radius:8px; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:.15s; }
+  .btn:hover { background:#333; color:#fff; }
+  .btn.danger:hover { color:#ff5252; }
+  .btn.primary { background:#ff0000; color:#fff; padding:8px 16px; font-weight:600; }
+  .btn.primary:hover { background:#d90000; }
+  .container { max-width:1000px; margin:0 auto; padding:24px 20px; display:flex; flex-direction:column; gap:20px; }
+  .card { background:#141414; border:1px solid #262626; border-radius:14px; padding:16px; }
+  .drop { border:2px dashed #333; border-radius:12px; padding:28px; text-align:center; cursor:pointer; transition:.15s; }
+  .drop.drag { border-color:#ff0000; background:rgba(255,0,0,.05); }
+  .drop .main { font-size:14px; color:#ddd; }
+  .drop .sub { font-size:12px; color:#777; margin-top:4px; }
+  .filerow { display:flex; align-items:center; justify-content:space-between; background:#1f1f1f; border-radius:8px; padding:8px 12px; font-size:13px; margin-top:8px; }
+  .filerow button { background:none; border:none; color:#777; cursor:pointer; font-size:14px; }
+  .filerow button:hover { color:#ff5252; }
+  input[type=text], input[type=number] { background:#1f1f1f; border:1px solid #333; border-radius:8px; padding:8px 12px; color:#fff; font-size:13px; }
+  input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#ff0000; }
+  .row { display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .row input[type=text] { flex:1; min-width:140px; }
+  .row label { font-size:11px; color:#999; display:flex; flex-direction:column; gap:4px; }
+  .status { font-size:12px; margin-top:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .status.err { color:#ff5252; } .status.ok { color:#4caf50; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; }
+  .kpi { background:#141414; border:1px solid #262626; border-radius:12px; padding:14px; }
+  .kpi .lbl { font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#888; margin-bottom:6px; }
+  .kpi .val { font-size:22px; font-weight:600; }
+  .kpi .delta { font-size:11px; margin-top:6px; }
+  .delta.up { color:#4caf50; } .delta.down { color:#ff5252; } .delta.flat { color:#888; }
+  .sectiontitle { font-size:13px; font-weight:600; margin-bottom:10px; }
+  .subsectiontitle { font-size:12px; font-weight:600; color:#aaa; margin:16px 0 8px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th { text-align:left; color:#888; font-weight:400; padding:6px 8px; border-bottom:1px solid #262626; }
+  th.r, td.r { text-align:right; }
+  td { padding:6px 8px; border-bottom:1px solid #1f1f1f; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hist-row { display:flex; align-items:center; justify-content:space-between; background:#1a1a1a; border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:13px; }
+  .hist-row .meta { color:#888; font-size:11px; margin-left:8px; }
+  .hist-row button { background:none; border:none; color:#777; cursor:pointer; }
+  .hist-row button:hover { color:#ff5252; }
+  .empty { text-align:center; padding:60px 20px; color:#666; }
+  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:center; justify-content:center; z-index:50; padding:16px;}
+  .modal-bg.show { display:flex; }
+  .modal { background:#141414; border:1px solid #333; border-radius:14px; padding:20px; max-width:360px; width:100%; }
+  .modal .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  svg text { fill:#888; font-size:10px; }
+  .legend { display:flex; gap:16px; font-size:11px; color:#999; margin-top:8px; flex-wrap:wrap; }
+  .legend span { display:inline-flex; align-items:center; gap:5px; }
+  .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+  /* audience mix bar */
+  .mix-bar { display:flex; height:22px; border-radius:6px; overflow:hidden; margin-top:8px; }
+  .mix-bar .seg-new { background:#3ea6ff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; }
+  .mix-bar .seg-ret { background:#2ba640; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; }
+  .mix-legend { display:flex; gap:14px; font-size:11px; color:#999; margin-top:6px; }
+  .mix-legend span { display:inline-flex; align-items:center; gap:5px; }
+
+  /* content type split */
+  .split-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .split-col { background:#1a1a1a; border-radius:10px; padding:12px; border-top:3px solid #444; }
+  .split-col.total { border-top-color:#888; }
+  .split-col.live { border-top-color:#ff0000; }
+  .split-col.shorts { border-top-color:#3ea6ff; }
+  .split-col .sctitle { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; display:flex; align-items:center; gap:5px; }
+  .split-row { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; color:#ccc; }
+  .split-row span:first-child { color:#888; }
+  @media (max-width:640px) { .split-grid { grid-template-columns:1fr; } }
+
+  /* grading system */
+  .health-hero { display:flex; align-items:center; gap:16px; background:#141414; border:1px solid #262626; border-radius:14px; padding:16px 20px; margin-bottom:16px; }
+  .health-grade-badge { width:56px; height:56px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800; flex-shrink:0; }
+  .health-title { font-size:15px; font-weight:600; }
+  .health-sub { font-size:12px; color:#999; margin-top:2px; }
+  .grade-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; }
+  .grade-card { background:#141414; border:1px solid #262626; border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:2px; border-top:3px solid #333; }
+  .grade-card-empty { opacity:.55; }
+  .gc-header { display:flex; align-items:center; gap:6px; font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.03em; margin-bottom:2px; }
+  .gc-grade { font-size:32px; font-weight:800; line-height:1; }
+  .gc-glabel { font-size:12px; font-weight:600; margin-top:-2px; }
+  .gc-desc { font-size:11px; color:#888; margin-top:2px; line-height:1.4; }
+  .gc-value { font-size:14px; font-weight:600; margin-top:6px; }
+  .gc-delta { font-size:11px; font-weight:500; margin-left:4px; }
+  .gc-delta.up { color:#4caf50; } .gc-delta.down { color:#ff5252; } .gc-delta.flat { color:#888; }
+  .gc-spark { margin-top:8px; }
+  .grade-A { color:#22c55e; } .grade-B { color:#14b8a6; } .grade-C { color:#eab308; } .grade-D { color:#f97316; } .grade-F { color:#ef4444; }
+  .grade-card.border-A { border-top-color:#22c55e; } .grade-card.border-B { border-top-color:#14b8a6; }
+  .grade-card.border-C { border-top-color:#eab308; } .grade-card.border-D { border-top-color:#f97316; } .grade-card.border-F { border-top-color:#ef4444; }
+  .health-grade-badge.grade-A { background:rgba(34,197,94,.15); color:#22c55e; }
+  .health-grade-badge.grade-B { background:rgba(20,184,166,.15); color:#14b8a6; }
+  .health-grade-badge.grade-C { background:rgba(234,179,8,.15); color:#eab308; }
+  .health-grade-badge.grade-D { background:rgba(249,115,22,.15); color:#f97316; }
+  .health-grade-badge.grade-F { background:rgba(239,68,68,.15); color:#ef4444; }
+  .grade-legend { display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:#888; margin-top:10px; }
+  .grade-legend b { font-weight:700; }
+
+  /* lifetime section */
+  .lifetime-card { background:linear-gradient(145deg,#141414,#1a1410); border:1px solid #332a1a; border-radius:14px; padding:16px; }
+  .lt-note { font-size:12px; color:#c9a227; background:rgba(201,162,39,.08); border:1px solid rgba(201,162,39,.25); border-radius:8px; padding:10px 12px; margin-bottom:10px; line-height:1.5; }
+  .lt-compare { margin-top:14px; padding:12px; background:#1a1a1a; border-radius:10px; font-size:13px; }
+  .lt-empty { text-align:center; padding:30px 10px; color:#777; font-size:13px; }
+  .lt-badge { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; margin-top:6px; }
+  .lt-badge.up { background:rgba(34,197,94,.15); color:#22c55e; }
+  .lt-badge.down { background:rgba(239,68,68,.15); color:#ef4444; }
+  .lt-badge.flat { background:rgba(148,163,184,.15); color:#94a3b8; }
+
+  /* milestone tracker */
+  .milestone-card { background:linear-gradient(145deg,#141414,#1a1030); border:1px solid #2e1f4d; border-radius:14px; padding:16px; }
+  .milestone-row { margin-top:14px; }
+  .milestone-head { display:flex; justify-content:space-between; align-items:baseline; font-size:13px; margin-bottom:6px; flex-wrap:wrap; gap:6px; }
+  .milestone-head b { font-size:15px; }
+  .milestone-sub { font-size:11px; color:#999; margin-top:5px; }
+  .target-toggle { display:inline-flex; gap:4px; background:#1a1a1a; border-radius:8px; padding:3px; margin-left:8px; }
+  .target-toggle button { background:none; border:none; color:#888; font-size:10px; padding:3px 8px; border-radius:6px; cursor:pointer; }
+  .target-toggle button.active { background:#3ea6ff; color:#fff; }
+  .milestone-empty { color:#888; font-size:12px; margin-top:8px; }
+  .hbar-wrap { margin-top:4px; }
+  .hbar-labels { display:flex; justify-content:space-between; font-size:10px; color:#777; margin-top:2px; }
+
+  /* quarterly milestones (KPI-card style) */
+  .quarter-switcher { display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .quarter-switcher select { background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:5px 8px; color:#fff; font-size:12px; }
+  .quarter-switcher .qnav { background:#262626; border:none; color:#ccc; border-radius:6px; padding:5px 10px; cursor:pointer; font-size:12px; }
+  .quarter-switcher .qnav:hover { background:#333; }
+  .milestone-plan-grid { display:flex; flex-direction:column; gap:18px; margin-top:14px; }
+  .mm-month-block .mm-month-title { font-size:13px; font-weight:700; color:#fff; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #262626; }
+  .mm-stat-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .mm-stat { background:#141414; border:1px solid #262626; border-radius:12px; padding:14px; }
+  .mm-stat .lbl { font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#888; margin-bottom:6px; display:flex; align-items:center; gap:5px; }
+  .mm-stat .mm-input-val { background:transparent; border:none; color:#fff; font-size:22px; font-weight:600; width:100%; padding:0; font-family:inherit; }
+  .mm-stat .mm-input-val:focus { outline:none; border-bottom:1px dashed #555; }
+  .mm-stat .mm-delta-line { font-size:11px; margin-top:8px; display:flex; align-items:center; gap:5px; }
+  .mm-track { background:#1f1f1f; border-radius:5px; height:6px; overflow:hidden; margin-top:8px; }
+  .mm-fill { height:100%; border-radius:5px; }
+  .mm-fill.subs { background:linear-gradient(90deg,#a855f7,#ec4899); }
+  .mm-fill.hours { background:linear-gradient(90deg,#3ea6ff,#22c55e); }
+  @media (max-width:520px) { .mm-stat-row { grid-template-columns:1fr; } }
+  .goal-input-row { display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12px; color:#999; flex-wrap:wrap; }
+
+  /* engaged views spotlight */
+  .engaged-card { background:linear-gradient(145deg,#141414,#0d1a2b); border:1px solid #1a3a5c; border-radius:14px; padding:18px; }
+  .engaged-head { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .engaged-head .eicon { width:34px; height:34px; border-radius:9px; background:rgba(62,166,255,.15); display:flex; align-items:center; justify-content:center; font-size:17px; }
+  .engaged-head .etitle { font-size:14px; font-weight:700; color:#fff; }
+  .engaged-head .esub { font-size:11px; color:#8ab4d8; }
+  .engaged-explainer { font-size:12px; color:#aac4de; background:rgba(62,166,255,.07); border:1px solid rgba(62,166,255,.2); border-radius:10px; padding:10px 12px; margin:10px 0 14px; line-height:1.5; }
+  .engaged-ratio-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:999px; font-size:12px; font-weight:700; margin-top:4px; }
+
+  /* performance summary */
+  .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
+  .summary-col { background:#141414; border:1px solid #262626; border-radius:14px; padding:14px; border-top:3px solid #444; }
+  .summary-col.positives { border-top-color:#22c55e; }
+  .summary-col.sustain { border-top-color:#eab308; }
+  .summary-col.improve { border-top-color:#ef4444; }
+  .summary-col h4 { margin:0 0 10px; font-size:13px; }
+  .summary-item { display:flex; gap:8px; padding:8px 0; border-bottom:1px solid #1f1f1f; font-size:12px; }
+  .summary-item:last-child { border-bottom:none; }
+  .summary-rank { font-weight:800; font-size:14px; width:18px; flex-shrink:0; }
+  .summary-body b { display:block; font-size:12.5px; }
+  .summary-body .tip { color:#999; font-size:11px; margin-top:2px; line-height:1.4; }
+  .summary-empty { color:#777; font-size:12px; padding:8px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <div class="logo" id="logoContainer" onclick="document.getElementById('logoFileInput').click()" style="cursor:pointer;" title="Click to change logo"></div>
+    <input type="file" id="logoFileInput" accept="image/*" style="display:none">
+    <div>
+      <button class="brand-name-btn title" id="channelNameBtn" onclick="editChannelName()" title="Click to rename">HANGAR 78</button>
+      <div class="sub" id="pullCount">0 snapshots tracked · local file, offline</div>
+    </div>
+  </div>
+  <div id="headerActions" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+</div>
+
+<div class="container">
+  <div class="card lifetime-card">
+    <div class="sectiontitle" style="display:flex;align-items:center;gap:6px;">🏆 Lifetime / All-Time Historical Data</div>
+    <div class="lt-note">
+      ⚠ YouTube auto-collapses very wide date ranges to yearly (or monthly) buckets in its chart export, so a true daily trend line usually isn't available for lifetime data. This section instead gives you a fixed lifetime baseline — same categories as your periodic pulls — to compare against.
+    </div>
+    <div class="drop" id="lifetimeDropZone" style="padding:20px;">
+      <div class="main">Drop your lifetime Table data / Totals / Chart data CSVs here, or click to browse</div>
+      <div class="sub">Same 3-file export as your periodic pulls, just set to your widest available date range</div>
+    </div>
+    <input type="file" id="lifetimeFileInput" accept=".csv" multiple style="display:none">
+    <div id="lifetimeStagingArea"></div>
+    <div id="lifetimeStatusArea"></div>
+    <div id="lifetimeArea"></div>
+  </div>
+
+  <div class="card lifetime-card">
+    <div class="sectiontitle" style="display:flex;align-items:center;gap:6px;">🧭 Traffic Sources — Lifetime Baseline</div>
+    <div class="lt-note">Where your views come from, all-time (Suggested, Search, Browse, External, etc.). Export "Traffic source" analytics at your widest date range as a 3-file bundle.</div>
+    <div class="drop" id="trafficLifetimeDropZone" style="padding:20px;">
+      <div class="main">Drop Traffic Source CSV(s) here, or click to browse</div>
+      <div class="sub">Table data required; Totals/Chart data optional</div>
+    </div>
+    <input type="file" id="trafficLifetimeFileInput" accept=".csv" multiple style="display:none">
+    <div id="trafficLifetimeStagingArea"></div>
+    <div id="trafficLifetimeStatusArea"></div>
+    <div id="trafficLifetimeArea"></div>
+  </div>
+
+  <div class="card">
+    <div class="sectiontitle" style="display:flex;align-items:center;gap:6px;">🧭 Traffic Sources — Periodic Pull</div>
+    <div style="font-size:12px; color:#999; margin-bottom:8px;">Track how your traffic mix shifts over time — is the algorithm pushing you more, or is search/external growing?</div>
+    <div class="drop" id="trafficDropZone">
+      <div class="main">Drop Traffic Source CSV(s) here, or click to browse</div>
+      <div class="sub">Table data required; Totals/Chart data optional</div>
+    </div>
+    <input type="file" id="trafficFileInput" accept=".csv" multiple style="display:none">
+    <div id="trafficStagingArea"></div>
+    <div id="trafficStatusArea"></div>
+  </div>
+  <div class="card" id="trafficDisplayCard">
+    <div class="sectiontitle">📡 Traffic Source Tracker</div>
+    <div id="trafficArea"></div>
+  </div>
+
+  <div class="card">
+    <div class="sectiontitle" style="display:flex;align-items:center;gap:6px;">⬆ Add a new analytics pull</div>
+    <div class="drop" id="dropZone">
+      <div class="main">Drop Table data / Totals / Chart data CSVs here, or click to browse</div>
+      <div class="sub">Files are auto-detected — upload one or all three at once</div>
+    </div>
+    <input type="file" id="fileInput" accept=".csv" multiple style="display:none">
+    <div id="stagingArea"></div>
+    <div id="statusArea"></div>
+  </div>
+
+  <div id="dashboardArea"></div>
+</div>
+
+<div class="modal-bg" id="clearModal">
+  <div class="modal">
+    <div style="font-weight:600; margin-bottom:8px;">Clear all tracked data?</div>
+    <div style="font-size:13px; color:#999;">This removes every saved snapshot from this file. Consider clicking Backup first. This can't be undone.</div>
+    <div class="actions">
+      <button class="btn" onclick="closeClearModal()">Cancel</button>
+      <button class="btn primary" style="background:#ff0000;" onclick="clearAll()">Clear all</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="clearLifetimeModal">
+  <div class="modal">
+    <div style="font-weight:600; margin-bottom:8px;">Clear lifetime historical data?</div>
+    <div style="font-size:13px; color:#999;">This removes your uploaded all-time baseline (both video and traffic source). Your periodic snapshots are not affected. This can't be undone.</div>
+    <div class="actions">
+      <button class="btn" onclick="closeClearLifetimeModal()">Cancel</button>
+      <button class="btn primary" style="background:#ff0000;" onclick="clearLifetime()">Clear it</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "yt-pulls-standalone-v1";
+const LIFETIME_KEY = "yt-lifetime-standalone-v2";
+const TRAFFIC_PULLS_KEY = "yt-traffic-pulls-v1";
+const TRAFFIC_LIFETIME_KEY = "yt-traffic-lifetime-v1";
+const BRAND_KEY = "yt-brand-v1";
+const WATCHTIME_SERIES_KEY = "yt-watchtime-series-v1";
+const QUARTER_PLANS_KEY = "yt-quarter-plans-v1";
+
+let state = {
+  pulls: [],
+  lifetime: null,
+  trafficPulls: [],
+  trafficLifetime: null,
+  watchTimeSeries: null,
+  quarterPlans: {},
+  selectedQuarter: null,
+  staging: { table: null, totals: null, chart: null, fileNames: [] },
+  lifetimeStaging: { table: null, totals: null, chart: null, fileNames: [] },
+  trafficStaging: { table: null, totals: null, chart: null, fileNames: [] },
+  trafficLifetimeStaging: { table: null, totals: null, chart: null, fileNames: [] },
+  label: new Date().toISOString().slice(0,10),
+  trafficLabel: new Date().toISOString().slice(0,10),
+  totalSubsInput: '',
+  lifetimeRangeLabel: '',
+  lifetimeDaysCovered: '',
+  trafficLifetimeRangeLabel: '',
+  status: null,
+  lifetimeStatus: null,
+  trafficStatus: null,
+  trafficLifetimeStatus: null,
+  folderHandle: null,
+  monetizationTargetHours: 4000,
+  channelName: 'HANGAR 78',
+  logoDataUrl: null,
+};
+
+// ---------- storage ----------
+function loadPulls() {
+  try { const raw = localStorage.getItem(STORAGE_KEY); state.pulls = raw ? JSON.parse(raw) : []; } catch(e) { state.pulls = []; }
+  try { const rawL = localStorage.getItem(LIFETIME_KEY); state.lifetime = rawL ? JSON.parse(rawL) : null; } catch(e) { state.lifetime = null; }
+  try { const rawT = localStorage.getItem(TRAFFIC_PULLS_KEY); state.trafficPulls = rawT ? JSON.parse(rawT) : []; } catch(e) { state.trafficPulls = []; }
+  try { const rawTL = localStorage.getItem(TRAFFIC_LIFETIME_KEY); state.trafficLifetime = rawTL ? JSON.parse(rawTL) : null; } catch(e) { state.trafficLifetime = null; }
+  try {
+    const rawB = localStorage.getItem(BRAND_KEY);
+    if (rawB) { const b = JSON.parse(rawB); state.channelName = b.name || 'HANGAR 78'; state.logoDataUrl = b.logo || null; }
+  } catch(e) {}
+  try { const rawW = localStorage.getItem(WATCHTIME_SERIES_KEY); state.watchTimeSeries = rawW ? JSON.parse(rawW) : null; } catch(e) { state.watchTimeSeries = null; }
+}
+function savePulls() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.pulls)); }
+  catch(e) { setStatus('err', 'Could not save to local storage: ' + e.message); }
+}
+function saveLifetimeToStorage() {
+  try { localStorage.setItem(LIFETIME_KEY, JSON.stringify(state.lifetime)); }
+  catch(e) { setLifetimeStatus('err', 'Could not save lifetime data: ' + e.message); }
+}
+function saveTrafficPulls() {
+  try { localStorage.setItem(TRAFFIC_PULLS_KEY, JSON.stringify(state.trafficPulls)); }
+  catch(e) { setTrafficStatus('err', 'Could not save traffic data: ' + e.message); }
+}
+function saveTrafficLifetimeToStorage() {
+  try { localStorage.setItem(TRAFFIC_LIFETIME_KEY, JSON.stringify(state.trafficLifetime)); }
+  catch(e) { setTrafficLifetimeStatus('err', 'Could not save traffic lifetime data: ' + e.message); }
+}
+function saveBrand() {
+  try { localStorage.setItem(BRAND_KEY, JSON.stringify({ name: state.channelName, logo: state.logoDataUrl })); } catch(e) {}
+}
+function saveWatchTimeSeries() {
+  try { localStorage.setItem(WATCHTIME_SERIES_KEY, JSON.stringify(state.watchTimeSeries)); } catch(e) {}
+}
+function loadQuarterPlans() {
+  try { const raw = localStorage.getItem(QUARTER_PLANS_KEY); state.quarterPlans = raw ? JSON.parse(raw) : {}; } catch(e) { state.quarterPlans = {}; }
+}
+function saveQuarterPlans() {
+  try { localStorage.setItem(QUARTER_PLANS_KEY, JSON.stringify(state.quarterPlans)); } catch(e) {}
+}
+
+function editChannelName() {
+  const n = prompt('Channel name:', state.channelName);
+  if (n != null && n.trim()) { state.channelName = n.trim(); saveBrand(); render(); }
+}
+function handleLogoFile(file) {
+  const r = new FileReader();
+  r.onload = e => { state.logoDataUrl = e.target.result; saveBrand(); render(); };
+  r.readAsDataURL(file);
+}
+
+// ---------- CSV parsing ----------
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i=0; i<text.length; i++) {
+    const c = text[i], next = text[i+1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\r') {}
+      else if (c === '\n') { row.push(field); rows.push(row); row=[]; field=''; }
+      else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  if (!rows.length) return { fields: [], data: [] };
+  const fields = rows[0].map(f => (f||'').trim());
+  const data = rows.slice(1).filter(r => r.some(v => v !== '')).map(r => {
+    const o = {};
+    fields.forEach((f,i) => {
+      let v = r[i] !== undefined ? r[i] : '';
+      if (v === '') { o[f] = null; return; }
+      const num = Number(v);
+      o[f] = (v.trim() !== '' && !isNaN(num) && /^-?[\d.]+$/.test(v.trim())) ? num : v;
+    });
+    return o;
+  });
+  return { fields, data };
+}
+
+function detectType(fields) {
+  const f = fields.map(x => (x||'').trim());
+  const hasDate = f.includes('Date');
+  const hasTitle = f.includes('Video title');
+  if (hasTitle && hasDate) return 'chart';
+  if (hasTitle && !hasDate) return 'table';
+  if (hasDate && f.length <= 2) return 'totals';
+  return 'unknown';
+}
+
+function detectTrafficType(fields) {
+  const f = fields.map(x => (x||'').trim());
+  const hasDate = f.includes('Date');
+  const hasSource = f.includes('Traffic source');
+  if (hasSource && hasDate) return 'chart';
+  if (hasSource && !hasDate) return 'table';
+  if (hasDate && f.length <= 2) return 'totals';
+  return 'unknown';
+}
+
+const SOURCE_COLORS = {
+  'Suggested videos': '#a855f7', 'Browse features': '#f97316', 'YouTube search': '#14b8a6',
+  'External': '#ec4899', 'Direct or unknown': '#94a3b8', 'Shorts feed': '#3ea6ff',
+  'Notifications': '#eab308', 'Playlists': '#22c55e', 'Channel pages': '#ef4444',
+  'Other YouTube features': '#78716c', 'Related Shorts': '#60a5fa', 'Sound pages': '#8b5cf6',
+  'Video sites/apps outside of YouTube': '#f43f5e', 'End screens': '#06b6d4', 'Cards and annotations': '#84cc16',
+  'Playlist page': '#22c55e', 'Hashtag pages': '#d946ef',
+};
+function sourceColor(name) { return SOURCE_COLORS[name] || '#666'; }
+
+// ---------- helpers: duration parsing/formatting ----------
+function parseDurationToSeconds(str) {
+  if (str == null || str === '') return null;
+  const parts = String(str).split(':').map(p => parseInt(p,10));
+  if (parts.some(p => isNaN(p))) return null;
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if (parts.length === 2) return parts[0]*60 + parts[1];
+  if (parts.length === 1) return parts[0];
+  return null;
+}
+function formatSeconds(sec) {
+  if (sec == null || isNaN(sec)) return '—';
+  sec = Math.round(sec);
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  const pad = n => String(n).padStart(2,'0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+function aggregateVideos(list) {
+  if (!list.length) return { views:0, engagedViews:0, watchTimeHours:0, subscribers:0, thumbImpressions:0, ctr:null, likes:0, newViewers:0, returningViewers:0, engagementRate:null, avgViewDurationSec:null, stayedToWatchPct:null };
+  let views=0, engagedViews=0, watchTimeHours=0, subscribers=0, thumbImpressions=0, ctrWeighted=0, ctrWeight=0;
+  let likes=0, newViewers=0, returningViewers=0, durWeighted=0, durWeight=0, stayedWeighted=0, stayedWeight=0;
+  list.forEach(v => {
+    views += v.views||0;
+    engagedViews += v.engagedViews||0;
+    watchTimeHours += v.watchTime||0;
+    subscribers += v.subs||0;
+    thumbImpressions += v.thumb||0;
+    likes += v.likes||0;
+    newViewers += v.newViewers||0;
+    returningViewers += v.returningViewers||0;
+    if (v.ctr!=null && v.thumb) { ctrWeighted += v.ctr * v.thumb; ctrWeight += v.thumb; }
+    if (v.avgViewDurationSec!=null && v.views) { durWeighted += v.avgViewDurationSec * v.views; durWeight += v.views; }
+    if (v.stayedToWatch!=null && v.views) { stayedWeighted += v.stayedToWatch * v.views; stayedWeight += v.views; }
+  });
+  return {
+    views, engagedViews, watchTimeHours, subscribers, thumbImpressions,
+    ctr: ctrWeight ? ctrWeighted/ctrWeight : null,
+    likes, newViewers, returningViewers,
+    engagementRate: views ? (likes/views)*100 : null,
+    avgViewDurationSec: durWeight ? durWeighted/durWeight : null,
+    stayedToWatchPct: stayedWeight ? stayedWeighted/stayedWeight : null,
+  };
+}
+
+function extractTableSummary(rows) {
+  const clean = rows.map(r => {
+    const o = {}; Object.keys(r).forEach(k => o[(k||'').trim()] = r[k]);
+    if (o.Content) o.Content = String(o.Content).trim();
+    return o;
+  });
+  const totalRow = clean.find(r => r.Content === 'Total');
+  const videoRows = clean.filter(r => r.Content && r.Content !== 'Total' && r.Views != null);
+
+  let totals = null;
+  if (totalRow) {
+    const likes = totalRow.Likes ?? null;
+    const views = totalRow.Views ?? null;
+    totals = {
+      views,
+      engagedViews: totalRow['Engaged views'] ?? null,
+      watchTimeHours: totalRow['Watch time (hours)'] ?? null,
+      subscribers: totalRow.Subscribers ?? totalRow['Subscribers gained'] ?? null,
+      ctr: totalRow['Thumbnail click-through rate (%)'] ?? null,
+      thumbnailImpressions: totalRow['Thumbnail impressions'] ?? null,
+      likes,
+      avgViewDurationSec: parseDurationToSeconds(totalRow['Average view duration']),
+      stayedToWatchPct: totalRow['Stayed to watch (%)'] ?? null,
+      newViewers: totalRow['New viewers'] ?? null,
+      returningViewers: totalRow['Returning viewers'] ?? null,
+      avgViewsPerViewer: totalRow['Average views per viewer'] ?? null,
+      engagementRate: (likes!=null && views) ? (likes/views)*100 : null,
+    };
+  }
+
+  const videos = videoRows.map(r => ({
+    id: r.Content, title: r['Video title'] || '(untitled)', views: r.Views ?? 0,
+    engagedViews: r['Engaged views'] ?? 0,
+    ctr: r['Thumbnail click-through rate (%)'] ?? null, thumb: r['Thumbnail impressions'] ?? 0,
+    watchTime: r['Watch time (hours)'] ?? 0, subs: r.Subscribers ?? r['Subscribers gained'] ?? 0,
+    likes: r.Likes ?? 0,
+    avgViewDurationSec: parseDurationToSeconds(r['Average view duration']),
+    stayedToWatch: r['Stayed to watch (%)'] ?? null,
+    newViewers: r['New viewers'] ?? 0,
+    returningViewers: r['Returning viewers'] ?? 0,
+    isLive: (r.Duration && r.Duration > 900) || /LIVE|🔴/i.test(r['Video title']||''),
+  }));
+  const liveTotals = aggregateVideos(videos.filter(v => v.isLive));
+  const shortTotals = aggregateVideos(videos.filter(v => !v.isLive));
+  return { totals, videos, liveTotals, shortTotals };
+}
+
+function extractTotalsSeries(rows) {
+  if (!rows.length) return { metricName: null, points: [] };
+  const keys = Object.keys(rows[0]);
+  const valueKey = keys.includes('Engaged views') ? 'Engaged views' : (keys.includes('Views') ? 'Views' : keys.find(k => k !== 'Date'));
+  const points = rows
+    .filter(r => r.Date != null && String(r.Date).trim().toLowerCase() !== 'total')
+    .map(r => ({ date: r.Date, value: r[valueKey] ?? 0 }));
+  return { metricName: valueKey, points };
+}
+
+function extractTrafficTableSummary(rows) {
+  const clean = rows.map(r => {
+    const o = {}; Object.keys(r).forEach(k => o[(k||'').trim()] = r[k]);
+    if (o['Traffic source']) o['Traffic source'] = String(o['Traffic source']).trim();
+    return o;
+  });
+  const totalRow = clean.find(r => r['Traffic source'] === 'Total');
+  const sourceRows = clean.filter(r => r['Traffic source'] && r['Traffic source'] !== 'Total');
+
+  const totals = totalRow ? {
+    views: totalRow.Views ?? null,
+    engagedViews: totalRow['Engaged views'] ?? null,
+    watchTimeHours: totalRow['Watch time (hours)'] ?? null,
+    avgViewDurationSec: parseDurationToSeconds(totalRow['Average view duration']),
+    thumbnailImpressions: totalRow['Thumbnail impressions'] ?? null,
+    ctr: totalRow['Thumbnail click-through rate (%)'] ?? null,
+  } : null;
+
+  const sources = sourceRows.map(r => ({
+    name: r['Traffic source'],
+    views: r.Views ?? 0,
+    engagedViews: r['Engaged views'] ?? 0,
+    watchTimeHours: r['Watch time (hours)'] ?? 0,
+    avgViewDurationSec: parseDurationToSeconds(r['Average view duration']),
+    thumb: r['Thumbnail impressions'] ?? null,
+    ctr: r['Thumbnail click-through rate (%)'] ?? null,
+  })).sort((a,b) => b.views - a.views);
+
+  if (totals && totals.views) {
+    sources.forEach(s => { s.pctViews = (s.views / totals.views) * 100; });
+  }
+
+  return { totals, sources };
+}
+
+function fmt(n) {
+  if (n === null || n === undefined) return '—';
+  if (typeof n !== 'number') return n;
+  if (Math.abs(n) >= 1000) return n.toLocaleString();
+  return n % 1 === 0 ? n.toString() : n.toFixed(2);
+}
+
+// ---------- file handling ----------
+function readFileAsText(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsText(file);
+  });
+}
+
+async function handleFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.csv'));
+  if (!files.length) { setStatus('err','Please upload .csv files exported from YouTube Studio.'); return; }
+  for (const file of files) {
+    const text = await readFileAsText(file);
+    const { fields, data } = parseCSV(text);
+    const type = detectType(fields);
+    const parsed = { fileName: file.name, type, rows: data, fields };
+    if (type === 'table') state.staging.table = parsed;
+    else if (type === 'totals') state.staging.totals = parsed;
+    else if (type === 'chart') state.staging.chart = parsed;
+    state.staging.fileNames.push(file.name + ' (' + (type==='unknown'?'unrecognized':type) + ')');
+  }
+  state.status = null;
+  render();
+}
+function removeStagingFile(type) { state.staging[type] = null; render(); }
+
+function savePull() {
+  const st = state.staging;
+  if (!st.table && !st.totals) { setStatus('err','Add at least a Table data or Totals CSV before saving.'); return; }
+  let totals = null, videos = [], liveTotals = null, shortTotals = null;
+  if (st.table) {
+    const ext = extractTableSummary(st.table.rows);
+    totals = ext.totals; videos = ext.videos; liveTotals = ext.liveTotals; shortTotals = ext.shortTotals;
+  }
+  let dailySeries = null;
+  if (st.totals) dailySeries = extractTotalsSeries(st.totals.rows);
+  if (!totals && dailySeries) {
+    const sum = dailySeries.points.reduce((a,p) => a + (p.value||0), 0);
+    totals = { views: dailySeries.metricName==='Views'?sum:null, engagedViews: dailySeries.metricName==='Engaged views'?sum:null };
+  }
+  if (totals && state.totalSubsInput !== '' && !isNaN(parseFloat(state.totalSubsInput))) {
+    totals.totalSubscribers = parseFloat(state.totalSubsInput);
+  }
+  const pull = {
+    id: 'pull_' + Date.now(),
+    label: state.label || new Date().toISOString().slice(0,10),
+    savedAt: new Date().toISOString(),
+    totals, videos, liveTotals, shortTotals, dailySeries,
+  };
+  state.pulls.push(pull);
+  state.pulls.sort((a,b) => a.savedAt.localeCompare(b.savedAt));
+  savePulls();
+  state.staging = { table:null, totals:null, chart:null, fileNames:[] };
+  state.label = new Date().toISOString().slice(0,10);
+  state.totalSubsInput = '';
+  setStatus('ok','Snapshot saved locally.');
+  render();
+}
+function deletePull(id) { state.pulls = state.pulls.filter(p => p.id !== id); savePulls(); render(); }
+
+function openClearModal() { document.getElementById('clearModal').classList.add('show'); }
+function closeClearModal() { document.getElementById('clearModal').classList.remove('show'); }
+function clearAll() { state.pulls = []; savePulls(); closeClearModal(); render(); }
+
+function setStatus(type, msg) { state.status = { type, msg }; renderStatus(); }
+function renderStatus() {
+  const el = document.getElementById('statusArea');
+  if (!el) return;
+  el.innerHTML = state.status ? `<div class="status ${state.status.type==='err'?'err':'ok'}">${state.status.msg}</div>` : '';
+}
+
+// ---------- lifetime handling ----------
+async function handleLifetimeFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.csv'));
+  if (!files.length) { setLifetimeStatus('err','Please upload .csv files exported from YouTube Studio.'); return; }
+  for (const file of files) {
+    const text = await readFileAsText(file);
+    const { fields, data } = parseCSV(text);
+    const type = detectType(fields);
+    const parsed = { fileName: file.name, type, rows: data, fields };
+    if (type === 'table') state.lifetimeStaging.table = parsed;
+    else if (type === 'totals') state.lifetimeStaging.totals = parsed;
+    else if (type === 'chart') state.lifetimeStaging.chart = parsed;
+    state.lifetimeStaging.fileNames.push(file.name + ' (' + (type==='unknown'?'unrecognized':type) + ')');
+  }
+  state.lifetimeStatus = null;
+  render();
+}
+function removeLifetimeStagingFile(type) { state.lifetimeStaging[type] = null; render(); }
+
+function saveLifetimePull() {
+  const st = state.lifetimeStaging;
+  if (!st.table && !st.totals) { setLifetimeStatus('err','Add at least a Table data or Totals CSV before saving.'); return; }
+  let totals = null, videos = [], liveTotals = null, shortTotals = null;
+  if (st.table) {
+    const ext = extractTableSummary(st.table.rows);
+    totals = ext.totals; videos = ext.videos; liveTotals = ext.liveTotals; shortTotals = ext.shortTotals;
+  }
+  let dailySeries = null;
+  if (st.totals) dailySeries = extractTotalsSeries(st.totals.rows);
+  if (!totals && dailySeries) {
+    const sum = dailySeries.points.reduce((a,p) => a + (p.value||0), 0);
+    totals = { views: dailySeries.metricName==='Views'?sum:null, engagedViews: dailySeries.metricName==='Engaged views'?sum:null };
+  }
+  if (totals && state.totalSubsInput !== '' && !isNaN(parseFloat(state.totalSubsInput))) {
+    totals.totalSubscribers = parseFloat(state.totalSubsInput);
+  }
+  const daysCovered = state.lifetimeDaysCovered !== '' && !isNaN(parseFloat(state.lifetimeDaysCovered)) ? parseFloat(state.lifetimeDaysCovered) : null;
+
+  state.lifetime = {
+    totals, videos, liveTotals, shortTotals,
+    rangeLabel: state.lifetimeRangeLabel || '(range not labeled)',
+    daysCovered,
+    fileNames: st.fileNames,
+    savedAt: new Date().toISOString(),
+  };
+  saveLifetimeToStorage();
+  state.lifetimeStaging = { table:null, totals:null, chart:null, fileNames:[] };
+  state.lifetimeRangeLabel = ''; state.lifetimeDaysCovered = '';
+  setLifetimeStatus('ok','Lifetime baseline saved.');
+  render();
+}
+
+function setLifetimeStatus(type, msg) { state.lifetimeStatus = { type, msg }; renderLifetimeStatus(); }
+function renderLifetimeStatus() {
+  const el = document.getElementById('lifetimeStatusArea');
+  if (!el) return;
+  el.innerHTML = state.lifetimeStatus ? `<div class="status ${state.lifetimeStatus.type==='err'?'err':'ok'}">${state.lifetimeStatus.msg}</div>` : '';
+}
+
+function clearLifetime() {
+  state.lifetime = null; state.trafficLifetime = null;
+  saveLifetimeToStorage(); saveTrafficLifetimeToStorage();
+  closeClearLifetimeModal(); render();
+}
+function openClearLifetimeModal() { document.getElementById('clearLifetimeModal').classList.add('show'); }
+function closeClearLifetimeModal() { document.getElementById('clearLifetimeModal').classList.remove('show'); }
+
+function currentVsLifetime() {
+  const lt = state.lifetime;
+  if (!lt || !lt.totals || !state.pulls.length) return null;
+  const latest = state.pulls[state.pulls.length-1];
+  if (!latest.totals) return null;
+  const metric = lt.totals.views != null ? 'views' : (lt.totals.engagedViews != null ? 'engagedViews' : null);
+  if (!metric || latest.totals[metric] == null) return null;
+  const ltVal = lt.totals[metric];
+  const currVal = latest.totals[metric];
+  if (!lt.daysCovered) return { metric, ltVal, currVal, noDenominator: true, periodLabel: latest.label };
+  const ltDailyAvg = ltVal / lt.daysCovered;
+  const currDays = latest.dailySeries?.points?.length || null;
+  if (!currDays) return { metric, ltVal, currVal, noDenominator: true, periodLabel: latest.label };
+  const currDailyAvg = currVal / currDays;
+  const pctDiff = ltDailyAvg !== 0 ? ((currDailyAvg - ltDailyAvg)/ltDailyAvg)*100 : 0;
+  return { metric, ltDailyAvg, currDailyAvg, pctDiff, periodLabel: latest.label, noDenominator: false };
+}
+
+// ---------- traffic source handling (periodic) ----------
+async function handleTrafficFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.csv'));
+  if (!files.length) { setTrafficStatus('err','Please upload .csv files.'); return; }
+  for (const file of files) {
+    const text = await readFileAsText(file);
+    const { fields, data } = parseCSV(text);
+    const type = detectTrafficType(fields);
+    const parsed = { fileName: file.name, type, rows: data, fields };
+    if (type === 'table') state.trafficStaging.table = parsed;
+    else if (type === 'totals') state.trafficStaging.totals = parsed;
+    else if (type === 'chart') state.trafficStaging.chart = parsed;
+    state.trafficStaging.fileNames.push(file.name + ' (' + (type==='unknown'?'unrecognized':type) + ')');
+  }
+  state.trafficStatus = null;
+  render();
+}
+function removeTrafficStagingFile(type) { state.trafficStaging[type] = null; render(); }
+
+function saveTrafficPull() {
+  const st = state.trafficStaging;
+  if (!st.table) { setTrafficStatus('err','Add a Traffic Source Table data CSV before saving.'); return; }
+  const ext = extractTrafficTableSummary(st.table.rows);
+  const pull = {
+    id: 'traffic_' + Date.now(),
+    label: state.trafficLabel || new Date().toISOString().slice(0,10),
+    savedAt: new Date().toISOString(),
+    totals: ext.totals, sources: ext.sources,
+  };
+  state.trafficPulls.push(pull);
+  state.trafficPulls.sort((a,b) => a.savedAt.localeCompare(b.savedAt));
+  saveTrafficPulls();
+  state.trafficStaging = { table:null, totals:null, chart:null, fileNames:[] };
+  state.trafficLabel = new Date().toISOString().slice(0,10);
+  setTrafficStatus('ok','Traffic source snapshot saved locally.');
+  render();
+}
+function deleteTrafficPull(id) { state.trafficPulls = state.trafficPulls.filter(p => p.id !== id); saveTrafficPulls(); render(); }
+
+function setTrafficStatus(type, msg) { state.trafficStatus = { type, msg }; renderTrafficStatus(); }
+function renderTrafficStatus() {
+  const el = document.getElementById('trafficStatusArea');
+  if (!el) return;
+  el.innerHTML = state.trafficStatus ? `<div class="status ${state.trafficStatus.type==='err'?'err':'ok'}">${state.trafficStatus.msg}</div>` : '';
+}
+
+// ---------- traffic source handling (lifetime) ----------
+async function handleTrafficLifetimeFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.csv'));
+  if (!files.length) { setTrafficLifetimeStatus('err','Please upload .csv files.'); return; }
+  for (const file of files) {
+    const text = await readFileAsText(file);
+    const { fields, data } = parseCSV(text);
+    const type = detectTrafficType(fields);
+    const parsed = { fileName: file.name, type, rows: data, fields };
+    if (type === 'table') state.trafficLifetimeStaging.table = parsed;
+    else if (type === 'totals') state.trafficLifetimeStaging.totals = parsed;
+    else if (type === 'chart') state.trafficLifetimeStaging.chart = parsed;
+    state.trafficLifetimeStaging.fileNames.push(file.name + ' (' + (type==='unknown'?'unrecognized':type) + ')');
+  }
+  state.trafficLifetimeStatus = null;
+  render();
+}
+function removeTrafficLifetimeStagingFile(type) { state.trafficLifetimeStaging[type] = null; render(); }
+
+function saveTrafficLifetimePull() {
+  const st = state.trafficLifetimeStaging;
+  if (!st.table) { setTrafficLifetimeStatus('err','Add a Traffic Source Table data CSV before saving.'); return; }
+  const ext = extractTrafficTableSummary(st.table.rows);
+  state.trafficLifetime = {
+    totals: ext.totals, sources: ext.sources,
+    rangeLabel: state.trafficLifetimeRangeLabel || '(range not labeled)',
+    savedAt: new Date().toISOString(),
+  };
+  saveTrafficLifetimeToStorage();
+  state.trafficLifetimeStaging = { table:null, totals:null, chart:null, fileNames:[] };
+  state.trafficLifetimeRangeLabel = '';
+  setTrafficLifetimeStatus('ok','Traffic source lifetime baseline saved.');
+  render();
+}
+function setTrafficLifetimeStatus(type, msg) { state.trafficLifetimeStatus = { type, msg }; renderTrafficLifetimeStatus(); }
+function renderTrafficLifetimeStatus() {
+  const el = document.getElementById('trafficLifetimeStatusArea');
+  if (!el) return;
+  el.innerHTML = state.trafficLifetimeStatus ? `<div class="status ${state.trafficLifetimeStatus.type==='err'?'err':'ok'}">${state.trafficLifetimeStatus.msg}</div>` : '';
+}
+
+// ---------- backup / restore ----------
+function exportBackup() {
+  const backup = {
+    pulls: state.pulls, lifetime: state.lifetime,
+    trafficPulls: state.trafficPulls, trafficLifetime: state.trafficLifetime,
+    exportedAt: new Date().toISOString(), version: 4
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'youtube-tracker-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setStatus('ok','Backup downloaded (includes snapshots, lifetime, and traffic data).');
+}
+function importBackupFile(file) {
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (Array.isArray(data)) {
+        state.pulls = data;
+        savePulls();
+        setStatus('ok', 'Restored ' + data.length + ' snapshot(s) from a legacy backup.');
+      } else if (data && Array.isArray(data.pulls)) {
+        state.pulls = data.pulls;
+        state.lifetime = (data.lifetime && data.lifetime.totals) ? data.lifetime : null;
+        state.trafficPulls = Array.isArray(data.trafficPulls) ? data.trafficPulls : [];
+        state.trafficLifetime = (data.trafficLifetime && data.trafficLifetime.totals) ? data.trafficLifetime : null;
+        savePulls(); saveLifetimeToStorage(); saveTrafficPulls(); saveTrafficLifetimeToStorage();
+        setStatus('ok', 'Restored ' + data.pulls.length + ' snapshot(s), lifetime data, and ' + state.trafficPulls.length + ' traffic snapshot(s).');
+      } else {
+        throw new Error('Not a valid backup file.');
+      }
+      render();
+    } catch(err) { setStatus('err', 'Could not read backup: ' + err.message); }
+  };
+  r.readAsText(file);
+}
+
+// ---------- folder linking ----------
+async function linkFolder() {
+  if (!window.showDirectoryPicker) { setStatus('err','Folder linking needs Chrome or Edge.'); return; }
+  try { state.folderHandle = await window.showDirectoryPicker(); await refreshFromFolder(); }
+  catch(e) { if (e.name !== 'AbortError') setStatus('err', 'Could not access folder: ' + e.message); }
+}
+async function refreshFromFolder() {
+  if (!state.folderHandle) { setStatus('err','No folder linked yet.'); return; }
+  try {
+    const perm = await state.folderHandle.queryPermission({ mode:'read' });
+    if (perm !== 'granted') {
+      const req = await state.folderHandle.requestPermission({ mode:'read' });
+      if (req !== 'granted') { setStatus('err','Folder permission denied.'); return; }
+    }
+    const found = [];
+    for await (const [name, handle] of state.folderHandle.entries()) {
+      if (handle.kind === 'file' && name.toLowerCase().endsWith('.csv')) found.push({ name, handle });
+    }
+    if (!found.length) { setStatus('err','No CSV files found in the linked folder.'); return; }
+    for (const f of found) {
+      const file = await f.handle.getFile();
+      const text = await file.text();
+      const { fields, data } = parseCSV(text);
+      const type = detectType(fields);
+      const parsed = { fileName: f.name, type, rows: data, fields };
+      if (type === 'table') state.staging.table = parsed;
+      else if (type === 'totals') state.staging.totals = parsed;
+      else if (type === 'chart') state.staging.chart = parsed;
+    }
+    state.staging.fileNames = found.map(f => f.name);
+    setStatus('ok', 'Loaded ' + found.length + ' file(s) from folder — review below, then Save Snapshot.');
+    render();
+  } catch(e) { setStatus('err','Folder refresh failed: ' + e.message); }
+}
+
+// ---------- chart helpers ----------
+function fmtDelta(curr, prev) { if (curr==null || prev==null) return null; return curr - prev; }
+
+function svgLineChart(trendData) {
+  const w = 900, h = 240, padL = 46, padR = 46, padTB = 20, padBottom = 34;
+  const seriesKeys = [ { key:'views', color:'#ff0000' }, { key:'engagedViews', color:'#3ea6ff' } ];
+  const allVals = trendData.flatMap(d => seriesKeys.map(s => d[s.key]).filter(v => v!=null));
+  const maxV = Math.max(1, ...allVals);
+  const subVals = trendData.map(d => d.subscribers).filter(v=>v!=null);
+  const maxSub = Math.max(1, ...subVals);
+  const plotW = w - padL - padR, plotH = h - padTB - padBottom;
+  const stepX = plotW / Math.max(1, trendData.length - 1);
+  function pt(i, val, max) { return [padL + i*stepX, padTB + plotH - (val/max)*plotH]; }
+  let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:100%;">`;
+
+  const ticks = 4;
+  for (let t=0; t<=ticks; t++) {
+    const y = padTB + plotH - (t/ticks)*plotH;
+    svg += `<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="#262626" stroke-width="1"/>`;
+    const leftVal = (t/ticks)*maxV;
+    svg += `<text x="${padL-8}" y="${y+3}" text-anchor="end" fill="#ff6666" font-size="10">${fmt(Math.round(leftVal))}</text>`;
+    if (subVals.length) {
+      const rightVal = (t/ticks)*maxSub;
+      svg += `<text x="${w-padR+8}" y="${y+3}" text-anchor="start" fill="#4caf50" font-size="10">${fmt(Math.round(rightVal))}</text>`;
+    }
+  }
+
+  seriesKeys.forEach(s => {
+    const pts = trendData.map((d,i) => d[s.key]!=null ? pt(i, d[s.key], maxV) : null).filter(Boolean);
+    if (pts.length) {
+      svg += `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
+      pts.forEach(p => svg += `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${s.color}"/>`);
+    }
+  });
+  if (subVals.length) {
+    const pts = trendData.map((d,i) => d.subscribers!=null ? pt(i, d.subscribers, maxSub) : null).filter(Boolean);
+    svg += `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#2ba640" stroke-width="2.5" stroke-dasharray="4,3"/>`;
+    pts.forEach(p => svg += `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="#2ba640"/>`);
+  }
+  trendData.forEach((d,i) => { const x = padL + i*stepX; svg += `<text x="${x}" y="${h-10}" text-anchor="middle">${d.label.length>10?d.label.slice(0,10)+'…':d.label}</text>`; });
+  svg += `<text x="${padL}" y="14" fill="#ff6666" font-size="10">◀ Views/Engaged</text>`;
+  if (subVals.length) svg += `<text x="${w-padR}" y="14" text-anchor="end" fill="#4caf50" font-size="10">Subscribers ▶</text>`;
+  svg += `</svg>`;
+  return svg;
+}
+
+function svgBarChart(trendData) {
+  const w = 860, h = 160, pad = 30;
+  const vals = trendData.map(d => d.ctr).filter(v=>v!=null);
+  const maxV = Math.max(1, ...vals, 5);
+  const bw = (w - pad*2) / trendData.length * 0.6;
+  const step = (w - pad*2) / trendData.length;
+  let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:100%;">`;
+  trendData.forEach((d,i) => {
+    if (d.ctr == null) return;
+    const bh = (d.ctr/maxV) * (h - pad*2);
+    const x = pad + i*step + (step-bw)/2;
+    const y = h - pad - bh;
+    svg += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="#ff0000" rx="3"/>`;
+    svg += `<text x="${x+bw/2}" y="${y-4}" text-anchor="middle" fill="#ccc">${d.ctr.toFixed(1)}%</text>`;
+    svg += `<text x="${x+bw/2}" y="${h-8}" text-anchor="middle">${d.label.length>8?d.label.slice(0,8)+'…':d.label}</text>`;
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+function sparkline(values, color) {
+  const w=140, h=32, pad=4;
+  const valid = values.filter(v => v!=null);
+  if (valid.length < 2) return '';
+  const max = Math.max(...valid), min = Math.min(...valid);
+  const range = (max - min) || 1;
+  const step = (w - pad*2) / (valid.length - 1);
+  const pts = valid.map((v,i) => [pad + i*step, h - pad - ((v-min)/range)*(h-pad*2)]);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="2"/>
+    ${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2" fill="${color}"/>`).join('')}
+  </svg>`;
+}
+
+// ---------- grading ----------
+const GRADE_GROUPS = [
+  { title: '📈 Growth & Reach', defs: [
+    { key:'views', label:'Views', icon:'👁', type:'count' },
+    { key:'subscribers', label:'Subscribers Gained', icon:'👥', type:'count' },
+    { key:'totalSubscribers', label:'Total Subscribers', icon:'👤', type:'count' },
+    { key:'newViewers', label:'New Viewers', icon:'🆕', type:'count' },
+  ]},
+  { title: '🎯 Retention & Engagement', defs: [
+    { key:'watchTimeHours', label:'Watch Time', icon:'⏱', type:'count', suffix:' hrs' },
+    { key:'ctr', label:'Click-Through Rate', icon:'🖱', type:'rate', suffix:'%' },
+    { key:'avgViewDurationSec', label:'Avg View Duration', icon:'⏳', type:'count', format:'duration' },
+    { key:'stayedToWatchPct', label:'Retention (Stayed to Watch)', icon:'📺', type:'rate', suffix:'%' },
+    { key:'engagementRate', label:'Engagement Rate (Likes/Views)', icon:'❤️', type:'rate', suffix:'%' },
+    { key:'returningViewers', label:'Returning Viewers', icon:'🔁', type:'count' },
+  ]},
+];
+const ALL_GRADE_DEFS = GRADE_GROUPS.flatMap(g => g.defs);
+
+function gradeColor(letter) { return { A:'#22c55e', B:'#14b8a6', C:'#eab308', D:'#f97316', F:'#ef4444' }[letter] || '#888'; }
+
+function computeMetricGrade(key, type) {
+  const series = state.pulls.map(p => (p.totals ? (p.totals[key] ?? null) : null));
+  const valid = series.map((v,i) => ({v,i})).filter(x => x.v != null);
+  if (valid.length < 2) return { insufficient: true, latest: valid.length ? valid[valid.length-1].v : null, history: series };
+  const latest = valid[valid.length-1].v, prevV = valid[valid.length-2].v, first = valid[0].v;
+  let recentChange, longChange, recentRaw, longRaw;
+  if (type === 'rate') {
+    recentChange = latest - prevV; longChange = latest - first;
+    recentRaw = recentChange * 20; longRaw = longChange * 12;
+  } else {
+    recentChange = prevV !== 0 ? ((latest - prevV) / Math.abs(prevV)) * 100 : (latest > 0 ? 100 : (latest < 0 ? -100 : 0));
+    longChange = first !== 0 ? ((latest - first) / Math.abs(first)) * 100 : (latest > 0 ? 100 : (latest < 0 ? -100 : 0));
+    recentRaw = recentChange; longRaw = longChange / Math.max(1, valid.length - 1);
+  }
+  const combined = recentRaw * 0.65 + longRaw * 0.35;
+  let letter, gradeLabel;
+  if (combined >= 20) { letter='A'; gradeLabel='Excellent'; }
+  else if (combined >= 8) { letter='B'; gradeLabel='Very Good'; }
+  else if (combined >= -8) { letter='C'; gradeLabel='Average'; }
+  else if (combined >= -25) { letter='D'; gradeLabel='Needs Improvement'; }
+  else { letter='F'; gradeLabel='Catastrophic'; }
+  let desc;
+  if (letter === 'A' || letter === 'B') desc = (recentChange > 0 && longChange > 0) ? 'Consistent upward trend across pulls.' : 'Recovering — latest period rebounded.';
+  else if (letter === 'C') desc = 'Holding steady, no major shifts either way.';
+  else desc = (recentChange < 0 && longChange < 0) ? 'Sustained decline — needs intervention.' : 'Dipped after earlier growth — watch closely.';
+  return { insufficient: false, letter, gradeLabel, desc, latest, recentChange, longChange, combined, history: series };
+}
+
+function computeOverallHealth(grades) {
+  const valid = grades.filter(g => !g.insufficient);
+  if (!valid.length) return null;
+  const points = { A:4, B:3, C:2, D:1, F:0 };
+  const avg = valid.reduce((a,g) => a + points[g.letter], 0) / valid.length;
+  let letter, label;
+  if (avg >= 3.5) { letter='A'; label='Excellent'; } else if (avg >= 2.5) { letter='B'; label='Very Good'; }
+  else if (avg >= 1.5) { letter='C'; label='Average'; } else if (avg >= 0.5) { letter='D'; label='Needs Improvement'; }
+  else { letter='F'; label='Catastrophic'; }
+  const improving = valid.filter(g => g.letter==='A'||g.letter==='B').length;
+  const declining = valid.filter(g => g.letter==='D'||g.letter==='F').length;
+  return { letter, label, improving, declining, steady: valid.length-improving-declining, total: valid.length };
+}
+
+function formatGradeValue(g) {
+  if (g.latest == null) return '—';
+  if (g.format === 'duration') return formatSeconds(g.latest);
+  return fmt(g.latest) + (g.suffix||'');
+}
+
+function gradeCardHtml(g) {
+  if (g.insufficient) {
+    const hint = g.key==='totalSubscribers'
+      ? "Enter your channel's total subscriber count when saving a snapshot to track this."
+      : (g.key==='avgViewDurationSec' || g.key==='stayedToWatchPct' || g.key==='engagementRate' || g.key==='newViewers' || g.key==='returningViewers' || g.key==='engagedViews')
+        ? "Needs a Table data CSV with this column, plus one more snapshot."
+        : "Needs one more snapshot to grade this metric.";
+    return `<div class="grade-card grade-card-empty">
+      <div class="gc-header"><span>${g.icon}</span><span>${g.label}</span></div>
+      <div class="gc-grade" style="color:#555;">—</div>
+      <div class="gc-desc">${hint}</div>
+      ${g.latest != null ? `<div class="gc-value">${formatGradeValue(g)}</div>` : ''}
+    </div>`;
+  }
+  const arrow = g.recentChange > 0 ? '▲' : (g.recentChange < 0 ? '▼' : '–');
+  const deltaCls = g.recentChange > 0 ? 'up' : (g.recentChange < 0 ? 'down' : 'flat');
+  const deltaUnit = g.type === 'rate' ? 'pp' : '%';
+  const spark = sparkline(g.history, gradeColor(g.letter));
+  return `<div class="grade-card border-${g.letter}">
+    <div class="gc-header"><span>${g.icon}</span><span>${g.label}</span></div>
+    <div class="gc-grade grade-${g.letter}">${g.letter}</div>
+    <div class="gc-glabel" style="color:${gradeColor(g.letter)};">${g.gradeLabel}</div>
+    <div class="gc-desc">${g.desc}</div>
+    <div class="gc-value">${formatGradeValue(g)} <span class="gc-delta ${deltaCls}">${arrow} ${g.recentChange>0?'+':''}${g.recentChange.toFixed(1)}${deltaUnit}</span></div>
+    <div class="gc-spark">${spark}</div>
+  </div>`;
+}
+
+function renderGrades() {
+  const allGrades = ALL_GRADE_DEFS.map(d => ({ ...d, ...computeMetricGrade(d.key, d.type) }));
+  const engagedGrade = { key:'engagedViews', ...computeMetricGrade('engagedViews','count') };
+  const overall = computeOverallHealth([...allGrades, engagedGrade]);
+
+  let html = '<div class="sectiontitle" style="margin-top:4px;">📋 Performance Grades</div>';
+  if (overall) {
+    html += `<div class="health-hero">
+      <div class="health-grade-badge grade-${overall.letter}">${overall.letter}</div>
+      <div>
+        <div class="health-title">Overall Channel Health: ${overall.label}</div>
+        <div class="health-sub">${overall.improving} improving · ${overall.steady} steady · ${overall.declining} declining (of ${overall.total} graded)</div>
+      </div>
+    </div>`;
+  } else {
+    html += `<div class="card" style="color:#888; font-size:13px; margin-bottom:16px;">Add at least 2 snapshots to start seeing grades.</div>`;
+  }
+
+  GRADE_GROUPS.forEach(group => {
+    const groupGrades = group.defs.map(d => ({ ...d, ...computeMetricGrade(d.key, d.type) }));
+    html += `<div class="subsectiontitle">${group.title}</div><div class="grade-grid">`;
+    groupGrades.forEach(g => { html += gradeCardHtml(g); });
+    html += '</div>';
+  });
+
+  html += `<div class="grade-legend">
+    <span><b style="color:#22c55e;">A</b> Excellent</span><span><b style="color:#14b8a6;">B</b> Very Good</span>
+    <span><b style="color:#eab308;">C</b> Average</span><span><b style="color:#f97316;">D</b> Needs Improvement</span>
+    <span><b style="color:#ef4444;">F</b> Catastrophic</span>
+  </div>`;
+  return html;
+}
+
+// ---------- audience mix ----------
+function renderAudienceMix(totals) {
+  if (!totals || totals.newViewers == null || totals.returningViewers == null) return '';
+  const nv = totals.newViewers, rv = totals.returningViewers, sum = nv+rv;
+  if (sum <= 0) return '';
+  const newPct = (nv/sum)*100, retPct = (rv/sum)*100;
+  return `<div class="card" style="margin-top:16px;">
+    <div class="sectiontitle">Audience Mix — New vs. Returning Viewers</div>
+    <div class="mix-bar">
+      <div class="seg-new" style="width:${newPct}%;">${newPct>=12?newPct.toFixed(0)+'%':''}</div>
+      <div class="seg-ret" style="width:${retPct}%;">${retPct>=12?retPct.toFixed(0)+'%':''}</div>
+    </div>
+    <div class="mix-legend">
+      <span><span class="dot" style="background:#3ea6ff;"></span>New (${fmt(nv)})</span>
+      <span><span class="dot" style="background:#2ba640;"></span>Returning (${fmt(rv)})</span>
+    </div>
+    <div style="font-size:11px; color:#888; margin-top:8px;">A healthy channel typically needs both: new viewers signal growing reach, returning viewers signal a loyal audience. Watch this ratio shift over time rather than judging a single snapshot.</div>
+  </div>`;
+}
+
+// ---------- engaged views spotlight ----------
+function svgEngagedRatioChart(trendData) {
+  const w = 900, h = 200, padL = 40, padR = 20, padTB = 20, padBottom = 30;
+  const plotW = w - padL - padR, plotH = h - padTB - padBottom;
+  const vals = trendData.map(d => d.ratio).filter(v => v!=null);
+  const maxV = Math.max(10, ...vals);
+  const stepX = plotW / Math.max(1, trendData.length - 1);
+  function pt(i, val) { return [padL + i*stepX, padTB + plotH - (val/maxV)*plotH]; }
+  let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:100%;">`;
+  for (let t=0; t<=4; t++) {
+    const y = padTB + plotH - (t/4)*plotH;
+    svg += `<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="#1e2d3d" stroke-width="1"/>`;
+    svg += `<text x="${padL-8}" y="${y+3}" text-anchor="end" fill="#6b93b5" font-size="10">${((t/4)*maxV).toFixed(0)}%</text>`;
+  }
+  const pts = trendData.map((d,i) => d.ratio!=null ? pt(i,d.ratio) : null).filter(Boolean);
+  if (pts.length) {
+    const areaPts = `${padL},${padTB+plotH} ${pts.map(p=>p.join(',')).join(' ')} ${padL+(pts.length-1)*stepX},${padTB+plotH}`;
+    svg += `<polygon points="${areaPts}" fill="#3ea6ff" opacity="0.12"/>`;
+    svg += `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#3ea6ff" stroke-width="2.5"/>`;
+    pts.forEach((p) => svg += `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#3ea6ff"/>`);
+  }
+  trendData.forEach((d,i) => { const x = padL + i*stepX; svg += `<text x="${x}" y="${h-8}" text-anchor="middle" fill="#6b93b5" font-size="10">${d.label.length>10?d.label.slice(0,10)+'…':d.label}</text>`; });
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderEngagedViewsSpotlight() {
+  const grade = { key:'engagedViews', label:'Engaged Views', icon:'📡', type:'count', ...computeMetricGrade('engagedViews','count') };
+  const trendData = state.pulls.map(p => ({
+    label: p.label,
+    views: p.totals?.views ?? null,
+    engagedViews: p.totals?.engagedViews ?? null,
+    subscribers: null,
+    ratio: (p.totals?.views && p.totals?.engagedViews != null) ? (p.totals.engagedViews / p.totals.views) * 100 : null,
+  }));
+  const latest = trendData[trendData.length-1];
+  const prevT = trendData[trendData.length-2];
+  const ratioDelta = (latest?.ratio!=null && prevT?.ratio!=null) ? latest.ratio - prevT.ratio : null;
+  const ratioCls = ratioDelta==null ? 'flat' : (ratioDelta>0.5?'up':(ratioDelta<-0.5?'down':'flat'));
+  const ratioColor = ratioCls==='up'?'#22c55e':(ratioCls==='down'?'#ef4444':'#94a3b8');
+  const ratioArrow = ratioCls==='up'?'▲':(ratioCls==='down'?'▼':'–');
+
+  let html = `<div class="engaged-head">
+    <div class="eicon">📡</div>
+    <div>
+      <div class="etitle">Engaged Views — The Hidden Growth Signal</div>
+      <div class="esub">Views that pass YouTube's active-attention threshold, not just impressions</div>
+    </div>
+  </div>
+  <div class="engaged-explainer">
+    Raw Views count anyone who saw the video at all — including quick bounces. <b>Engaged Views only count people who actually paid attention.</b>
+    This is the number that best predicts whether a viewer becomes a <b>returning viewer</b>, then a <b>subscriber</b>, then a source of loyal watch time.
+    A rising <b>Engaged ÷ Views ratio</b> means your content is genuinely improving — not just reaching more people, but holding them once they arrive.
+  </div>`;
+
+  if (trendData.length < 2) {
+    html += `<div class="milestone-empty">Add at least 2 snapshots to see the Engaged Views trend and ratio chart.</div>`;
+  } else {
+    html += `<div class="sectiontitle" style="margin-top:6px;">Views vs. Engaged Views Over Time</div>
+    ${svgLineChart(trendData)}
+    <div class="legend">
+      <span><span class="dot" style="background:#ff0000;"></span>Views</span>
+      <span><span class="dot" style="background:#3ea6ff;"></span>Engaged Views</span>
+    </div>
+
+    <div class="sectiontitle" style="margin-top:20px;">Engaged ÷ Views Ratio (% of viewers who actually engage)</div>
+    ${svgEngagedRatioChart(trendData)}
+    ${latest?.ratio!=null ? `<div class="engaged-ratio-badge" style="background:${ratioColor}22; color:${ratioColor};">${ratioArrow} Current: ${latest.ratio.toFixed(1)}% engaged ${ratioDelta!=null?`(${ratioDelta>0?'+':''}${ratioDelta.toFixed(1)}pp vs last)`:''}</div>` : ''}
+  `;
+  }
+
+  html += `<div class="sectiontitle" style="margin-top:20px;">Engaged Views Grade</div>
+  <div class="grade-grid">${gradeCardHtml(grade)}</div>`;
+
+  return `<div class="card engaged-card">${html}</div>`;
+}
+
+// ---------- content type split ----------
+function renderContentSplit(totals, liveTotals, shortTotals) {
+  function col(cls, icon, title, t) {
+    if (!t) return `<div class="split-col ${cls}"><div class="sctitle">${icon} ${title}</div><div style="color:#666; font-size:12px;">No data</div></div>`;
+    return `<div class="split-col ${cls}">
+      <div class="sctitle">${icon} ${title}</div>
+      <div class="split-row"><span>Views</span><span>${fmt(t.views)}</span></div>
+      <div class="split-row"><span>Watch Time</span><span>${fmt(t.watchTimeHours ?? t.watchTime)} hrs</span></div>
+      <div class="split-row"><span>Avg View Duration</span><span>${formatSeconds(t.avgViewDurationSec)}</span></div>
+      <div class="split-row"><span>Retention</span><span>${t.stayedToWatchPct!=null?fmt(t.stayedToWatchPct)+'%':'—'}</span></div>
+      <div class="split-row"><span>Subs Gained</span><span>${fmt(t.subscribers)}</span></div>
+      <div class="split-row"><span>CTR</span><span>${t.ctr!=null?fmt(t.ctr)+'%':'—'}</span></div>
+      <div class="split-row"><span>Engagement Rate</span><span>${t.engagementRate!=null?fmt(t.engagementRate)+'%':'—'}</span></div>
+    </div>`;
+  }
+  return `<div class="split-grid">
+    ${col('total','📊','Total', totals ? { views: totals.views, watchTimeHours: totals.watchTimeHours, subscribers: totals.subscribers, ctr: totals.ctr, avgViewDurationSec: totals.avgViewDurationSec, stayedToWatchPct: totals.stayedToWatchPct, engagementRate: totals.engagementRate } : null)}
+    ${col('live','🔴','Live Streams', liveTotals)}
+    ${col('shorts','🎬','Shorts & Other', shortTotals)}
+  </div>`;
+}
+
+// ---------- lifetime rendering ----------
+function renderLifetimeStagingArea() {
+  const area = document.getElementById('lifetimeStagingArea');
+  const st = state.lifetimeStaging;
+  let html = '';
+  if (st.table) html += `<div class="filerow">📊 Table data: <span style="color:#888">${st.table.fileName}</span><button onclick="removeLifetimeStagingFile('table')">✕</button></div>`;
+  if (st.totals) html += `<div class="filerow">📈 Totals: <span style="color:#888">${st.totals.fileName}</span><button onclick="removeLifetimeStagingFile('totals')">✕</button></div>`;
+  if (st.chart) html += `<div class="filerow">🗂 Chart data: <span style="color:#888">${st.chart.fileName}</span><button onclick="removeLifetimeStagingFile('chart')">✕</button></div>`;
+  if (st.table || st.totals || st.chart) {
+    html += `<div class="row">
+      <label>Range label (optional)<input type="text" id="lifetimeRangeInput" value="${state.lifetimeRangeLabel}" placeholder="e.g. Feb 2026 - Sep 2026" oninput="state.lifetimeRangeLabel=this.value"></label>
+      <label>Days covered (optional)<input type="number" id="lifetimeDaysInput" value="${state.lifetimeDaysCovered}" placeholder="e.g. 224" style="width:110px;" oninput="state.lifetimeDaysCovered=this.value"></label>
+      <label>Total subscribers now (optional)<input type="number" id="lifetimeSubsInput" value="${state.totalSubsInput}" placeholder="e.g. 5230" style="width:110px;" oninput="state.totalSubsInput=this.value"></label>
+    </div>
+    <div class="row"><button class="btn primary" onclick="saveLifetimePull()">Save Lifetime Baseline</button></div>`;
+  }
+  area.innerHTML = html;
+}
+
+function renderLifetimeArea() {
+  const area = document.getElementById('lifetimeArea');
+  const lt = state.lifetime;
+  if (!lt || !lt.totals) {
+    area.innerHTML = `<div class="lt-empty">No lifetime baseline saved yet. Drop your widest-range CSV export above and click "Save Lifetime Baseline".</div>`;
+    return;
+  }
+  let html = `<div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-top:8px; margin-bottom:12px;">
+    <div style="font-size:12px; color:#999;">Range: <b style="color:#ddd;">${lt.rangeLabel}</b>${lt.daysCovered?` · ${lt.daysCovered} days`:''}</div>
+    <button class="btn danger" onclick="openClearLifetimeModal()">🗑 Clear lifetime data</button>
+  </div>`;
+
+  html += renderContentSplit(lt.totals, lt.liveTotals, lt.shortTotals);
+  html += renderAudienceMix(lt.totals);
+
+  if (lt.totals.totalSubscribers != null) {
+    html += `<div class="lt-compare">Total subscribers at time of this baseline: <b>${fmt(lt.totals.totalSubscribers)}</b></div>`;
+  }
+
+  const cmp = currentVsLifetime();
+  if (cmp) {
+    if (cmp.noDenominator) {
+      html += `<div class="lt-compare" style="color:#888;">
+        Lifetime ${cmp.metric === 'views' ? 'Views' : 'Engaged Views'}: <b>${fmt(cmp.ltVal)}</b> total &nbsp;|&nbsp;
+        Latest pull ("${cmp.periodLabel}"): <b>${fmt(cmp.currVal)}</b>.
+        Add "Days covered" above to unlock a daily-average comparison.
+      </div>`;
+    } else {
+      const cls = cmp.pctDiff > 3 ? 'up' : (cmp.pctDiff < -3 ? 'down' : 'flat');
+      const arrow = cls === 'up' ? '▲' : (cls === 'down' ? '▼' : '–');
+      html += `<div class="lt-compare">
+        <b>Latest pull ("${cmp.periodLabel}") vs. lifetime daily average:</b><br>
+        Current period: <b>${fmt(cmp.currDailyAvg)}</b>/day &nbsp;|&nbsp; Lifetime avg: <b>${fmt(cmp.ltDailyAvg)}</b>/day
+        <div class="lt-badge ${cls}">${arrow} ${cmp.pctDiff>0?'+':''}${cmp.pctDiff.toFixed(1)}% vs. lifetime average</div>
+      </div>`;
+    }
+  }
+  area.innerHTML = html;
+}
+
+// ---------- traffic source rendering ----------
+function renderTrafficBarList(sources, totalViews) {
+  if (!sources || !sources.length) return '<div style="color:#666; font-size:12px;">No source data.</div>';
+  let html = '<div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">';
+  sources.forEach(s => {
+    const pct = totalViews ? (s.views/totalViews)*100 : 0;
+    html += `<div>
+      <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px;">
+        <span><span class="dot" style="background:${sourceColor(s.name)};"></span> ${s.name}</span>
+        <span style="color:#aaa;">${fmt(s.views)} views · ${pct.toFixed(1)}%</span>
+      </div>
+      <div style="background:#1f1f1f; border-radius:4px; height:8px; overflow:hidden;">
+        <div style="background:${sourceColor(s.name)}; height:100%; width:${Math.max(pct,1)}%;"></div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderTrafficShiftTable() {
+  if (state.trafficPulls.length < 2) return '';
+  const nameSet = new Set();
+  state.trafficPulls.forEach(p => (p.sources||[]).forEach(s => nameSet.add(s.name)));
+  const first = state.trafficPulls[0], last = state.trafficPulls[state.trafficPulls.length-1];
+  const rows = Array.from(nameSet).map(name => {
+    const firstS = (first.sources||[]).find(s => s.name===name);
+    const lastS = (last.sources||[]).find(s => s.name===name);
+    const firstPct = firstS?.pctViews ?? 0, lastPct = lastS?.pctViews ?? 0;
+    const diff = lastPct - firstPct;
+    return { name, firstPct, lastPct, diff };
+  }).sort((a,b) => b.lastPct - a.lastPct);
+
+  let html = `<div class="card" style="margin-top:16px;">
+    <div class="sectiontitle">Traffic Source Shift — "${first.label}" → "${last.label}"</div>
+    <table><thead><tr><th>Source</th><th class="r">${first.label}</th><th class="r">${last.label}</th><th class="r">Shift</th></tr></thead><tbody>`;
+  rows.forEach(r => {
+    const cls = r.diff > 1 ? 'up' : (r.diff < -1 ? 'down' : 'flat');
+    const arrow = cls==='up'?'▲':(cls==='down'?'▼':'–');
+    html += `<tr>
+      <td><span class="dot" style="background:${sourceColor(r.name)};"></span> ${r.name}</td>
+      <td class="r">${r.firstPct.toFixed(1)}%</td>
+      <td class="r">${r.lastPct.toFixed(1)}%</td>
+      <td class="r"><span class="gc-delta ${cls}">${arrow} ${r.diff>0?'+':''}${r.diff.toFixed(1)}pp</span></td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+function renderTrafficStagingArea() {
+  const area = document.getElementById('trafficStagingArea');
+  const st = state.trafficStaging;
+  let html = '';
+  if (st.table) html += `<div class="filerow">📊 Table data: <span style="color:#888">${st.table.fileName}</span><button onclick="removeTrafficStagingFile('table')">✕</button></div>`;
+  if (st.totals) html += `<div class="filerow">📈 Totals: <span style="color:#888">${st.totals.fileName}</span><button onclick="removeTrafficStagingFile('totals')">✕</button></div>`;
+  if (st.chart) html += `<div class="filerow">🗂 Chart data: <span style="color:#888">${st.chart.fileName}</span><button onclick="removeTrafficStagingFile('chart')">✕</button></div>`;
+  if (st.table || st.totals || st.chart) {
+    html += `<div class="row">
+      <input type="text" id="trafficLabelInput" value="${state.trafficLabel}" placeholder="Label this pull (e.g. Sep 7-13)" oninput="state.trafficLabel=this.value">
+      <button class="btn primary" onclick="saveTrafficPull()">Save Traffic Snapshot</button>
+    </div>`;
+  }
+  area.innerHTML = html;
+}
+
+function renderTrafficArea() {
+  const area = document.getElementById('trafficArea');
+  if (!state.trafficPulls.length) {
+    area.innerHTML = `<div class="lt-empty">No traffic source snapshots yet.</div>`;
+    return;
+  }
+  const latest = state.trafficPulls[state.trafficPulls.length-1];
+  let html = `<div class="subsectiontitle" style="margin-top:12px;">Latest breakdown — ${latest.label}</div>`;
+  html += renderTrafficBarList(latest.sources, latest.totals?.views);
+  html += renderTrafficShiftTable();
+
+  let histRows = [...state.trafficPulls].reverse().map(p => `
+    <div class="hist-row">
+      <div><strong>${p.label}</strong><span class="meta">top source: ${p.sources?.[0]?.name||'—'} (${p.sources?.[0]?.pctViews?.toFixed(1)||'—'}%)</span></div>
+      <button onclick="deleteTrafficPull('${p.id}')">🗑</button>
+    </div>`).join('');
+  html += `<div class="subsectiontitle">Snapshot history</div>${histRows}`;
+  area.innerHTML = html;
+}
+
+function renderTrafficLifetimeStagingArea() {
+  const area = document.getElementById('trafficLifetimeStagingArea');
+  const st = state.trafficLifetimeStaging;
+  let html = '';
+  if (st.table) html += `<div class="filerow">📊 Table data: <span style="color:#888">${st.table.fileName}</span><button onclick="removeTrafficLifetimeStagingFile('table')">✕</button></div>`;
+  if (st.totals) html += `<div class="filerow">📈 Totals: <span style="color:#888">${st.totals.fileName}</span><button onclick="removeTrafficLifetimeStagingFile('totals')">✕</button></div>`;
+  if (st.chart) html += `<div class="filerow">🗂 Chart data: <span style="color:#888">${st.chart.fileName}</span><button onclick="removeTrafficLifetimeStagingFile('chart')">✕</button></div>`;
+  if (st.table || st.totals || st.chart) {
+    html += `<div class="row">
+      <label>Range label (optional)<input type="text" id="trafficLtRangeInput" value="${state.trafficLifetimeRangeLabel}" placeholder="e.g. Feb 2026 - Sep 2026" oninput="state.trafficLifetimeRangeLabel=this.value"></label>
+    </div>
+    <div class="row"><button class="btn primary" onclick="saveTrafficLifetimePull()">Save Traffic Lifetime Baseline</button></div>`;
+  }
+  area.innerHTML = html;
+}
+
+function renderTrafficLifetimeArea() {
+  const area = document.getElementById('trafficLifetimeArea');
+  const lt = state.trafficLifetime;
+  if (!lt || !lt.totals) {
+    area.innerHTML = `<div class="lt-empty">No traffic source lifetime baseline saved yet.</div>`;
+    return;
+  }
+  let html = `<div style="font-size:12px; color:#999; margin-top:8px;">Range: <b style="color:#ddd;">${lt.rangeLabel}</b></div>`;
+  html += renderTrafficBarList(lt.sources, lt.totals.views);
+  area.innerHTML = html;
+}
+
+// ---------- monetization milestone tracker ----------
+function setMonetizationTarget(hrs) { state.monetizationTargetHours = hrs; render(); }
+
+function parseWatchTimeSeriesRows(rows) {
+  if (!rows.length) return null;
+  const keys = Object.keys(rows[0]);
+  const valueKey = keys.includes('Watch time (hours)') ? 'Watch time (hours)' : keys.find(k => k !== 'Date');
+  if (!valueKey) return null;
+  const points = rows
+    .filter(r => r.Date != null && r.Date !== '' && String(r.Date).trim().toLowerCase() !== 'total')
+    .map(r => ({
+      date: String(r.Date).trim(),
+      value: typeof r[valueKey] === 'number' ? r[valueKey] : (parseFloat(r[valueKey]) || 0)
+    }))
+    .filter(p => !isNaN(new Date(p.date).getTime()));
+  return points.length ? points : null;
+}
+
+async function handleWatchTimeFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.csv'));
+  if (!files.length) { setStatus('err','Please upload a Date + Watch time CSV.'); return; }
+  let existing = state.watchTimeSeries?.points || [];
+  let fileNames = state.watchTimeSeries?.fileNames || [];
+  for (const file of files) {
+    const text = await readFileAsText(file);
+    const { data } = parseCSV(text);
+    const points = parseWatchTimeSeriesRows(data);
+    if (!points) { setStatus('err', `"${file.name}" doesn't look like a valid Date + Watch time CSV.`); continue; }
+    const map = {};
+    existing.forEach(p => map[p.date] = p.value);
+    points.forEach(p => map[p.date] = p.value);
+    existing = Object.keys(map).sort().map(date => ({ date, value: map[date] }));
+    fileNames.push(file.name);
+  }
+  state.watchTimeSeries = { points: existing, fileNames };
+  saveWatchTimeSeries();
+  setStatus('ok', `Watch time series updated: ${existing.length} days on file.`);
+  render();
+}
+
+function clearWatchTimeSeries() {
+  state.watchTimeSeries = null;
+  saveWatchTimeSeries();
+  render();
+}
+
+function computeTrailing12MonthHours() {
+  const series = state.watchTimeSeries?.points;
+  if (!series || !series.length) return null;
+  const sorted = [...series].sort((a,b) => a.date.localeCompare(b.date));
+  const asOf = new Date(sorted[sorted.length-1].date);
+  const cutoff = new Date(asOf); cutoff.setDate(cutoff.getDate() - 365);
+  const included = sorted.filter(p => new Date(p.date) >= cutoff);
+  const total = included.reduce((a,p) => a + (p.value||0), 0);
+  return { total, asOf: sorted[sorted.length-1].date, from: included[0]?.date, days: included.length, totalDaysOnFile: sorted.length };
+}
+
+function computeMonetizationProgress() {
+  const latestPull = state.pulls[state.pulls.length-1];
+  const subs = latestPull?.totals?.totalSubscribers ?? state.lifetime?.totals?.totalSubscribers ?? null;
+  const trailing = computeTrailing12MonthHours();
+  const watchHours = trailing ? trailing.total : (state.lifetime?.totals?.watchTimeHours ?? null);
+  const isTrailing = !!trailing;
+  if (subs == null && watchHours == null) return null;
+  const subsTarget = 1000;
+  const hoursTarget = state.monetizationTargetHours;
+  const subsPct = subs != null ? Math.min(100, (subs/subsTarget)*100) : null;
+  const hoursPct = watchHours != null ? Math.min(100, (watchHours/hoursTarget)*100) : null;
+  return { subs, subsTarget, subsPct, watchHours, hoursTarget, hoursPct, isTrailing, trailing };
+}
+
+function svgHBar(current, target, colorA, colorB, id) {
+  const w = 600, h = 40;
+  const pct = target ? Math.min(1, current/target) : 0;
+  const barW = pct * w;
+  const gradId = 'grad_' + id;
+  let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:100%; display:block;">
+    <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="${colorA}"/><stop offset="100%" stop-color="${colorB}"/>
+    </linearGradient></defs>
+    <rect x="0" y="8" width="${w}" height="24" rx="6" fill="#1f1f1f"/>
+    <rect x="0" y="8" width="${Math.max(barW,6)}" height="24" rx="6" fill="url(#${gradId})"/>`;
+  [0.25,0.5,0.75].forEach(t => { svg += `<line x1="${t*w}" y1="8" x2="${t*w}" y2="32" stroke="#0a0a0a" stroke-width="1" opacity="0.4"/>`; });
+  svg += `<text x="${Math.max(barW-6,60)}" y="24" text-anchor="end" font-size="12" font-weight="700" fill="#fff">${pct>=0.12? (pct*100).toFixed(0)+'%':''}</text>`;
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderMilestoneTracker() {
+  const m = computeMonetizationProgress();
+  let html = `<div class="sectiontitle" style="display:flex; align-items:center; gap:6px;">🎯 Monetization Milestone Tracker</div>`;
+
+  if (!m) {
+    html += `<div class="milestone-empty">Enter your Total Subscribers when saving a snapshot, and upload watch time data below, to see progress toward monetization here.</div>`;
+  } else {
+    html += `<div class="milestone-row">
+      <div class="milestone-head"><span>👥 Subscribers: &nbsp;</span><b>${m.subs!=null?fmt(m.subs):'—'} / ${fmt(m.subsTarget)}</b></div>`;
+    if (m.subsPct != null) {
+      html += `<div class="hbar-wrap">${svgHBar(m.subs, m.subsTarget, '#a855f7', '#ec4899', 'subs')}</div>
+      <div class="hbar-labels"><span>0</span><span>${fmt(m.subsTarget)}</span></div>`;
+    } else {
+      html += `<div class="milestone-sub">No subscriber count entered yet — add it when saving a snapshot.</div>`;
+    }
+    html += `</div>`;
+
+    html += `<div class="milestone-row">
+      <div class="milestone-head">
+        <span>⏱ Watch Hours: &nbsp;${m.isTrailing ? '(trailing 12 months, actual)' : '(lifetime total — not trailing 12mo)'}
+          <span class="target-toggle">
+            <button class="${m.hoursTarget===4000?'active':''}" onclick="setMonetizationTarget(4000)">Current: 4,000</button>
+            <button class="${m.hoursTarget===8000?'active':''}" onclick="setMonetizationTarget(8000)">Feb 2027: 8,000</button>
+          </span>
+        </span>
+        <b>${m.watchHours!=null?fmt(m.watchHours):'—'} / ${fmt(m.hoursTarget)}</b>
+      </div>`;
+    if (m.hoursPct != null) {
+      html += `<div class="hbar-wrap">${svgHBar(m.watchHours, m.hoursTarget, '#3ea6ff', '#22c55e', 'hours')}</div>
+      <div class="hbar-labels"><span>0</span><span>${fmt(m.hoursTarget)}</span></div>`;
+      if (m.isTrailing) {
+        html += `<div class="milestone-sub">✅ Real rolling 365-day window: ${m.trailing.from} → ${m.trailing.asOf} (${m.trailing.days} days of data).</div>`;
+      } else {
+        html += `<div class="milestone-sub">⚠ This is your all-time total, not a true trailing 12 months. Upload daily watch-time data below for an accurate number — this is what YouTube actually checks.</div>`;
+      }
+    } else {
+      html += `<div class="milestone-sub">Upload watch time data below, or a Lifetime baseline, to see this.</div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `<div style="margin-top:16px; padding-top:14px; border-top:1px solid #2e1f4d;">
+    <div style="font-size:12px; font-weight:600; color:#ccc; margin-bottom:4px;">📅 Trailing 12-Month Watch Time Data</div>
+    <div style="font-size:11px; color:#999; margin-bottom:8px;">In YouTube Studio, export Totals with the metric set to <b>Watch time (hours)</b>, date range = last 12-13 months. Upload here for the real rolling number YouTube uses to check monetization eligibility.</div>
+    <div class="drop" id="watchTimeDropZone" style="padding:14px;">
+      <div class="main" style="font-size:13px;">Drop Date + Watch Time CSV here, or click to browse</div>
+    </div>
+    <input type="file" id="watchTimeFileInput" accept=".csv" multiple style="display:none">`;
+  if (state.watchTimeSeries?.points?.length) {
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; color:#999;">
+      <span>${state.watchTimeSeries.points.length} days on file (${state.watchTimeSeries.fileNames?.length||0} upload(s))</span>
+      <button class="btn danger" onclick="clearWatchTimeSeries()">🗑 Clear</button>
+    </div>`;
+  }
+  html += `</div>`;
+
+  html += renderMilestonePlan(m);
+
+  html += `<div style="font-size:11px; color:#777; margin-top:12px; border-top:1px solid #262626; padding-top:10px;">
+    Alternate path: 10M Shorts views in 90 days (rising to 20M after Feb 2027) also unlocks monetization, independent of watch hours — not tracked here since it needs a different data source.
+  </div>`;
+
+  return `<div class="card milestone-card">${html}</div>`;
+}
+
+// ---------- quarterly milestone plan (SMART, editable, persisted) ----------
+function getQuarterMonths(year, q) {
+  const startMonth = (q-1)*3;
+  return [0,1,2].map(i => new Date(year, startMonth+i, 1));
+}
+function currentQuarter() {
+  const now = new Date();
+  return { year: now.getFullYear(), q: Math.floor(now.getMonth()/3)+1 };
+}
+function quarterKey(year, q) { return `${year}-Q${q}`; }
+
+function suggestQuarterDefaults(year, q, m) {
+  const months = getQuarterMonths(year, q);
+  const currentSubs = m?.subs ?? 0;
+  const currentHours = m?.watchHours ?? 0;
+  const subsGoal = 1000, hoursGoal = m?.hoursTarget || 4000;
+
+  let subsMonthlyRate = null, hoursMonthlyRate = null;
+  if (state.pulls.length >= 2) {
+    const first = state.pulls[0], last = state.pulls[state.pulls.length-1];
+    const firstDate = new Date(first.savedAt), lastDate = new Date(last.savedAt);
+    const monthsElapsed = Math.max(1, (lastDate-firstDate)/(1000*60*60*24*30.44));
+    const subsGain = (last.totals?.totalSubscribers ?? 0) - (first.totals?.totalSubscribers ?? 0);
+    if (subsGain > 0) subsMonthlyRate = subsGain / monthsElapsed;
+  }
+  if (!subsMonthlyRate || subsMonthlyRate <= 0) subsMonthlyRate = Math.max(10, (subsGoal-currentSubs)/12);
+  if (!hoursMonthlyRate || hoursMonthlyRate <= 0) hoursMonthlyRate = Math.max(25, (hoursGoal-currentHours)/12);
+
+  return months.map((date, i) => ({
+    subs: Math.round(currentSubs + subsMonthlyRate * (i+1) * (1 + i*0.15)),
+    hours: Math.round(currentHours + hoursMonthlyRate * (i+1) * (1 + i*0.1)),
+  }));
+}
+
+function getOrCreateQuarterPlan(year, q) {
+  const key = quarterKey(year, q);
+  if (!state.quarterPlans[key]) {
+    const m = computeMonetizationProgress();
+    const defaults = suggestQuarterDefaults(year, q, m);
+    state.quarterPlans[key] = { targets: defaults };
+    saveQuarterPlans();
+  }
+  return state.quarterPlans[key];
+}
+
+function updateQuarterTarget(year, q, monthIdx, field, value) {
+  const plan = getOrCreateQuarterPlan(year, q);
+  const v = parseFloat(value);
+  plan.targets[monthIdx][field] = isNaN(v) ? 0 : v;
+  saveQuarterPlans();
+  render();
+}
+
+function resetQuarterToSuggested(year, q) {
+  const key = quarterKey(year, q);
+  const m = computeMonetizationProgress();
+  state.quarterPlans[key] = { targets: suggestQuarterDefaults(year, q, m) };
+  saveQuarterPlans();
+  render();
+}
+
+function changeQuarterSelector(field, value) {
+  if (!state.selectedQuarter) state.selectedQuarter = currentQuarter();
+  state.selectedQuarter[field] = parseInt(value, 10);
+  render();
+}
+function navQuarter(dir) {
+  if (!state.selectedQuarter) state.selectedQuarter = currentQuarter();
+  let { year, q } = state.selectedQuarter;
+  q += dir;
+  if (q > 4) { q = 1; year++; } else if (q < 1) { q = 4; year--; }
+  state.selectedQuarter = { year, q };
+  render();
+}
+
+function renderMilestonePlan(m) {
+  if (!state.selectedQuarter) state.selectedQuarter = currentQuarter();
+  const { year, q } = state.selectedQuarter;
+  const months = getQuarterMonths(year, q);
+  const plan = getOrCreateQuarterPlan(year, q);
+  const currentSubs = m?.subs ?? 0;
+  const currentHours = m?.watchHours ?? 0;
+
+  let html = `<div style="margin-top:16px; padding-top:14px; border-top:1px solid #2e1f4d;">
+    <div style="font-size:12px; font-weight:600; color:#ccc;">📆 Quarterly SMART Milestones</div>
+    <div class="quarter-switcher">
+      <button class="qnav" onclick="navQuarter(-1)">◀</button>
+      <select onchange="changeQuarterSelector('q', this.value)">
+        ${[1,2,3,4].map(qq => `<option value="${qq}" ${qq===q?'selected':''}>Q${qq} (${['Jan-Mar','Apr-Jun','Jul-Sep','Oct-Dec'][qq-1]})</option>`).join('')}
+      </select>
+      <select onchange="changeQuarterSelector('year', this.value)">
+        ${[year-1,year,year+1].map(yy => `<option value="${yy}" ${yy===year?'selected':''}>${yy}</option>`).join('')}
+      </select>
+      <button class="qnav" onclick="navQuarter(1)">▶</button>
+      <button class="qnav" onclick="resetQuarterToSuggested(${year},${q})" title="Recalculate suggested targets from your current data">↻ Reset to suggested</button>
+    </div>
+    <div style="font-size:11px; color:#888; margin-top:6px;">Suggested targets are based on your actual growth rate so far (or a realistic default if you're just starting) — edit any number below to set your own SMART goal.</div>
+  `;
+
+  if (!m) {
+    html += `<div class="milestone-sub" style="margin-top:8px;">Add your current subs/watch hours above to generate suggested targets.</div></div>`;
+    return html;
+  }
+
+  html += `<div class="milestone-plan-grid">`;
+  months.forEach((date, i) => {
+    const t = plan.targets[i];
+    const subsPct = t.subs > 0 ? Math.min(100, (currentSubs/t.subs)*100) : 100;
+    const hoursPct = t.hours > 0 ? Math.min(100, (currentHours/t.hours)*100) : 100;
+    const label = date.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+    const subsColor = subsPct>=90?'#22c55e':subsPct>=50?'#eab308':'#ef4444';
+    const hoursColor = hoursPct>=90?'#22c55e':hoursPct>=50?'#eab308':'#ef4444';
+    const subsArrow = subsPct>=90?'▲':subsPct>=50?'●':'▼';
+    const hoursArrow = hoursPct>=90?'▲':hoursPct>=50?'●':'▼';
+
+    html += `<div class="mm-month-block">
+      <div class="mm-month-title">${label}</div>
+      <div class="mm-stat-row">
+        <div class="mm-stat">
+          <div class="lbl">👥 Subs Target</div>
+          <input type="number" class="mm-input-val" value="${t.subs}" onchange="updateQuarterTarget(${year},${q},${i},'subs',this.value)">
+          <div class="mm-delta-line" style="color:${subsColor};">${subsArrow} Currently ${fmt(currentSubs)} · ${subsPct.toFixed(0)}% there</div>
+          <div class="mm-track"><div class="mm-fill subs" style="width:${Math.max(subsPct,3)}%;"></div></div>
+        </div>
+        <div class="mm-stat">
+          <div class="lbl">⏱ Hours Target</div>
+          <input type="number" class="mm-input-val" value="${t.hours}" onchange="updateQuarterTarget(${year},${q},${i},'hours',this.value)">
+          <div class="mm-delta-line" style="color:${hoursColor};">${hoursArrow} Currently ${fmt(currentHours)} · ${hoursPct.toFixed(0)}% there</div>
+          <div class="mm-track"><div class="mm-fill hours" style="width:${Math.max(hoursPct,3)}%;"></div></div>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+// ---------- performance summary ----------
+const METRIC_TIPS = {
+  views: { improve: 'Try tighter titles/thumbnails on your next 2-3 uploads and see if views respond.', positive: 'Whatever you changed recently is working — repeat the format.', sustain: 'Views are flat — a fresh series or thumbnail refresh could restart growth.' },
+  engagedViews: { improve: 'Low engaged views vs. views suggests people click but bounce fast — check your opening 15 seconds.', positive: 'Strong engaged view growth — your hooks are working.', sustain: 'Steady engagement — safe to experiment with a new intro style.' },
+  watchTimeHours: { improve: 'This is your highest-leverage metric for monetization — longer retention per stream matters more than view count.', positive: 'Rising watch time is the strongest positive signal you have — keep the format that\u2019s driving it.', sustain: 'Watch time is stable — try extending your most-retained segment type.' },
+  subscribers: { improve: 'Add a clear subscribe CTA tied to a specific reason (e.g. "subscribe to vote next round").', positive: 'Conversion is working — your CTA placement or hook is landing.', sustain: 'Steady sub growth — test moving your CTA earlier in the video.' },
+  totalSubscribers: { improve: 'Growth has slowed — revisit what worked in your best-performing period.', positive: 'Compounding growth — you\u2019re past the hardest part of channel building.', sustain: 'Stable subscriber base — good time to test community posts or polls.' },
+  newViewers: { improve: 'Low new-viewer flow limits long-term growth — check Traffic Sources for what\u2019s underperforming.', positive: 'You\u2019re reaching fresh audiences — check Traffic Sources to see what\u2019s driving it.', sustain: 'New viewer flow is steady — consistent, not a concern.' },
+  ctr: { improve: 'Thumbnail/title combo isn\u2019t earning clicks — A/B test bolder text or a clearer facial expression/emotion.', positive: 'Your thumbnails are converting impressions to clicks well — keep this visual style.', sustain: 'CTR is stable — safe to test a bolder variant on your next video.' },
+  avgViewDurationSec: { improve: 'People are leaving early — tighten your intro or move the "good part" earlier.', positive: 'People are watching longer — whatever pacing change you made is working.', sustain: 'Duration is consistent — try trimming dead air to push it higher.' },
+  stayedToWatchPct: { improve: 'Retention is a top algorithm signal — losing viewers early hurts recommendations more than low views.', positive: 'Strong retention — YouTube will reward this with more recommendations.', sustain: 'Retention is holding — good foundation, focus growth efforts elsewhere.' },
+  engagementRate: { improve: 'Low likes-to-views ratio — a simple on-screen or verbal "like if..." prompt can lift this fast.', positive: 'High engagement rate — your audience is actively responding, not just watching passively.', sustain: 'Engagement is steady — try asking a direct question to viewers.' },
+  returningViewers: { improve: 'Low returning viewers means one-time traffic — build a recurring series people can follow.', positive: 'Growing returning viewers — you\u2019re building real audience loyalty.', sustain: 'Returning viewers are stable — a consistent upload schedule helps lock this in.' },
+};
+
+function computePerformanceSummary() {
+  const grades = ALL_GRADE_DEFS.map(d => ({ ...d, ...computeMetricGrade(d.key, d.type) })).filter(g => !g.insufficient);
+  const positives = grades.filter(g => g.letter==='A'||g.letter==='B').sort((a,b) => b.combined - a.combined).slice(0,5);
+  const improve = grades.filter(g => g.letter==='D'||g.letter==='F').sort((a,b) => a.combined - b.combined).slice(0,5);
+  const sustain = grades.filter(g => g.letter==='C').sort((a,b) => Math.abs(a.combined) - Math.abs(b.combined)).slice(0,5);
+  return { positives, improve, sustain, hasAny: grades.length > 0 };
+}
+
+function summaryItemHtml(g, rank, kind) {
+  const tip = METRIC_TIPS[g.key]?.[kind] || '';
+  return `<div class="summary-item">
+    <div class="summary-rank" style="color:${gradeColor(g.letter)};">#${rank}</div>
+    <div class="summary-body">
+      <b>${g.icon} ${g.label} <span style="color:${gradeColor(g.letter)};">(${g.letter})</span></b>
+      <div class="tip">${tip}</div>
+    </div>
+  </div>`;
+}
+
+function renderPerformanceSummary() {
+  const s = computePerformanceSummary();
+  if (!s.hasAny) {
+    return `<div class="card" style="color:#888; font-size:13px;">Add at least 2 snapshots to generate a performance summary.</div>`;
+  }
+  function col(cls, title, list, kind, emptyMsg) {
+    let html = `<div class="summary-col ${cls}"><h4>${title}</h4>`;
+    if (!list.length) html += `<div class="summary-empty">${emptyMsg}</div>`;
+    else list.forEach((g,i) => html += summaryItemHtml(g, i+1, kind));
+    html += `</div>`;
+    return html;
+  }
+  return `<div class="summary-grid">
+    ${col('positives','✅ Top Positives', s.positives, 'positive', 'Nothing graded A/B yet — keep tracking.')}
+    ${col('sustain','➖ Sustainments (Keep Steady)', s.sustain, 'sustain', 'Nothing sitting at a steady average right now.')}
+    ${col('improve','⚠️ Needs Improvement', s.improve, 'improve', 'Nothing graded D/F right now — solid across the board.')}
+  </div>`;
+}
+
+// ---------- main render ----------
+function render() {
+  const logoEl = document.getElementById('logoContainer');
+  logoEl.innerHTML = state.logoDataUrl ? `<img src="${state.logoDataUrl}" class="logo-img">` : '▶';
+  document.getElementById('channelNameBtn').textContent = state.channelName;
+
+  renderLifetimeStagingArea();
+  renderLifetimeArea();
+  renderLifetimeStatus();
+  renderTrafficLifetimeStagingArea();
+  renderTrafficLifetimeArea();
+  renderTrafficLifetimeStatus();
+  renderTrafficStagingArea();
+  renderTrafficArea();
+  renderTrafficStatus();
+
+  document.getElementById('pullCount').textContent = state.pulls.length + ' snapshot' + (state.pulls.length!==1?'s':'') + ' tracked · local file, offline';
+
+  const actions = document.getElementById('headerActions');
+  actions.innerHTML = '';
+  if (window.showDirectoryPicker) {
+    actions.innerHTML += `<button class="btn" onclick="linkFolder()">📁 Link Folder</button>`;
+    if (state.folderHandle) actions.innerHTML += `<button class="btn" onclick="refreshFromFolder()">🔄 Refresh from Folder</button>`;
+  }
+  if (state.pulls.length > 0) {
+    actions.innerHTML += `<button class="btn" onclick="exportBackup()">⬇ Backup</button>`;
+    actions.innerHTML += `<button class="btn" onclick="document.getElementById('restoreInput').click()">⬆ Restore</button>`;
+    actions.innerHTML += `<button class="btn danger" onclick="openClearModal()">🗑 Reset</button>`;
+  }
+  actions.innerHTML += `<input type="file" id="restoreInput" accept=".json" style="display:none">`;
+
+  const st = state.staging;
+  let stagingHtml = '';
+  if (st.table) stagingHtml += `<div class="filerow">📊 Table data: <span style="color:#888">${st.table.fileName}</span><button onclick="removeStagingFile('table')">✕</button></div>`;
+  if (st.totals) stagingHtml += `<div class="filerow">📈 Totals: <span style="color:#888">${st.totals.fileName}</span><button onclick="removeStagingFile('totals')">✕</button></div>`;
+  if (st.chart) stagingHtml += `<div class="filerow">🗂 Chart data: <span style="color:#888">${st.chart.fileName}</span><button onclick="removeStagingFile('chart')">✕</button></div>`;
+  if (st.table || st.totals || st.chart) {
+    stagingHtml += `<div class="row">
+      <input type="text" id="labelInput" value="${state.label}" placeholder="Label this pull (e.g. Sep 7-13)" oninput="state.label=this.value">
+      <label>Total subscribers (optional)<input type="number" id="subsInput" value="${state.totalSubsInput}" placeholder="e.g. 5230" style="width:110px;" oninput="state.totalSubsInput=this.value"></label>
+      <button class="btn primary" onclick="savePull()">Save Snapshot</button>
+    </div>`;
+  }
+  document.getElementById('stagingArea').innerHTML = stagingHtml;
+  renderStatus();
+
+  const dash = document.getElementById('dashboardArea');
+  if (!state.pulls.length) { dash.innerHTML = `<div class="empty">No snapshots yet — upload your first CSV export above to get started.</div>`; return; }
+
+  const latest = state.pulls[state.pulls.length-1];
+  const prev = state.pulls[state.pulls.length-2];
+
+  function kpi(label, val, prevVal, suffix, formatFn) {
+    const d = fmtDelta(val, prevVal);
+    let deltaHtml = '';
+    if (d !== null) {
+      const cls = d>0?'up':d<0?'down':'flat'; const arrow = d>0?'▲':d<0?'▼':'–';
+      deltaHtml = `<div class="delta ${cls}">${arrow} ${d>0?'+':''}${formatFn?formatFn(Math.abs(d)):fmt(d)+(suffix||'')} vs last</div>`;
+    }
+    const displayVal = val==null ? '—' : (formatFn ? formatFn(val) : fmt(val)+(suffix||''));
+    return `<div class="kpi"><div class="lbl">${label}: &nbsp;</div><div class="val">${displayVal}</div>${deltaHtml}</div>`;
+  }
+
+  let html = `<div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;">Latest snapshot — ${latest.label}</div>
+  <div class="kpi-grid">
+    ${kpi('Views', latest.totals?.views, prev?.totals?.views)}
+    ${kpi('Engaged Views', latest.totals?.engagedViews, prev?.totals?.engagedViews)}
+    ${kpi('Watch Time (hrs)', latest.totals?.watchTimeHours, prev?.totals?.watchTimeHours)}
+    ${kpi('Subscribers Gained', latest.totals?.subscribers, prev?.totals?.subscribers)}
+    ${kpi('Total Subscribers', latest.totals?.totalSubscribers, prev?.totals?.totalSubscribers)}
+    ${kpi('Avg CTR', latest.totals?.ctr, prev?.totals?.ctr, '%')}
+    ${kpi('Avg View Duration', latest.totals?.avgViewDurationSec, prev?.totals?.avgViewDurationSec, '', formatSeconds)}
+    ${kpi('Retention', latest.totals?.stayedToWatchPct, prev?.totals?.stayedToWatchPct, '%')}
+    ${kpi('Engagement Rate', latest.totals?.engagementRate, prev?.totals?.engagementRate, '%')}
+  </div>`;
+
+  html += renderAudienceMix(latest.totals);
+
+  html += `<div style="margin-top:16px;">${renderEngagedViewsSpotlight()}</div>`;
+
+  html += `<div style="margin-top:16px;">${renderMilestoneTracker()}</div>`;
+
+  html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Views by Content Type — ${latest.label}</div>${renderContentSplit(latest.totals, latest.liveTotals, latest.shortTotals)}</div>`;
+
+  html += `<div style="margin-top:20px;">${renderGrades()}</div>`;
+
+  const trendData = state.pulls.map(p => ({
+    label: p.label, views: p.totals?.views ?? null, engagedViews: p.totals?.engagedViews ?? null,
+    subscribers: p.totals?.subscribers ?? null, ctr: p.totals?.ctr ?? null,
+  }));
+
+  if (trendData.length >= 2) {
+    html += `<div class="card" style="margin-top:16px;">
+      <div class="sectiontitle">Views & Subscribers over time</div>
+      ${svgLineChart(trendData)}
+      <div class="legend">
+        <span><span class="dot" style="background:#ff0000;"></span>Views</span>
+        <span><span class="dot" style="background:#3ea6ff;"></span>Engaged Views</span>
+        <span><span class="dot" style="background:#2ba640;"></span>Subscribers (dashed)</span>
+      </div>
+    </div>`;
+  }
+  if (trendData.filter(t=>t.ctr!=null).length >= 2) {
+    html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Channel-wide CTR trend</div>${svgBarChart(trendData)}</div>`;
+  }
+
+  const videoMap = {};
+  state.pulls.forEach(p => (p.videos||[]).forEach(v => {
+    if (!videoMap[v.id]) videoMap[v.id] = { id:v.id, title:v.title, isLive:v.isLive, history:[] };
+    videoMap[v.id].history.push({ label:p.label, views:v.views, ctr:v.ctr });
+    videoMap[v.id].title = v.title; videoMap[v.id].isLive = v.isLive;
+  }));
+  const tracked = Object.values(videoMap).sort((a,b) => {
+    const av = a.history[a.history.length-1].views||0, bv = b.history[b.history.length-1].views||0;
+    return bv-av;
+  }).slice(0,15);
+
+  if (tracked.length) {
+    let rows = tracked.map(v => {
+      const h = v.history, last = h[h.length-1].ctr, first = h[0].ctr;
+      let trend = '<span style="color:#555;">single pull</span>';
+      if (h.length>=2 && last!=null && first!=null) {
+        if (last>first) trend = '<span style="color:#4caf50;">▲ improving</span>';
+        else if (last<first) trend = '<span style="color:#ff5252;">▼ declining</span>';
+        else trend = '<span style="color:#888;">– flat</span>';
+      }
+      return `<tr><td>${v.isLive?'🔴 ':''}${v.title}</td><td class="r">${fmt(h[h.length-1].views)}</td><td class="r">${last!=null?fmt(last)+'%':'—'}</td><td class="r">${trend}</td></tr>`;
+    }).join('');
+    html += `<div class="card" style="margin-top:16px;">
+      <div class="sectiontitle">Video-level tracker (CTR & views across pulls — top 15)</div>
+      <table><thead><tr><th>Video</th><th class="r">Latest Views</th><th class="r">Latest CTR</th><th class="r">CTR Trend</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  }
+
+  let histRows = [...state.pulls].reverse().map(p => `
+    <div class="hist-row">
+      <div><strong>${p.label}</strong><span class="meta">${fmt(p.totals?.views)} views · ${fmt(p.totals?.subscribers)} subs gained${p.totals?.totalSubscribers!=null?' · '+fmt(p.totals.totalSubscribers)+' total subs':''}${p.totals?.ctr!=null?' · '+fmt(p.totals.ctr)+'% CTR':''}${p.totals?.stayedToWatchPct!=null?' · '+fmt(p.totals.stayedToWatchPct)+'% retention':''}</span></div>
+      <button onclick="deletePull('${p.id}')">🗑</button>
+    </div>`).join('');
+
+  html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">📝 Channel Performance Summary</div>${renderPerformanceSummary()}</div>`;
+
+  html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Snapshot history</div>${histRows}</div>`;
+
+  dash.innerHTML = html;
+}
+
+// ---------- wire up events ----------
+document.getElementById('dropZone').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', e => e.target.files.length && handleFiles(e.target.files));
+document.getElementById('dropZone').addEventListener('dragover', e => { e.preventDefault(); document.getElementById('dropZone').classList.add('drag'); });
+document.getElementById('dropZone').addEventListener('dragleave', () => document.getElementById('dropZone').classList.remove('drag'));
+document.getElementById('dropZone').addEventListener('drop', e => { e.preventDefault(); document.getElementById('dropZone').classList.remove('drag'); handleFiles(e.dataTransfer.files); });
+
+document.getElementById('lifetimeDropZone').addEventListener('click', () => document.getElementById('lifetimeFileInput').click());
+document.getElementById('lifetimeFileInput').addEventListener('change', e => e.target.files.length && handleLifetimeFiles(e.target.files));
+document.getElementById('lifetimeDropZone').addEventListener('dragover', e => { e.preventDefault(); document.getElementById('lifetimeDropZone').classList.add('drag'); });
+document.getElementById('lifetimeDropZone').addEventListener('dragleave', () => document.getElementById('lifetimeDropZone').classList.remove('drag'));
+document.getElementById('lifetimeDropZone').addEventListener('drop', e => { e.preventDefault(); document.getElementById('lifetimeDropZone').classList.remove('drag'); handleLifetimeFiles(e.dataTransfer.files); });
+
+document.getElementById('trafficDropZone').addEventListener('click', () => document.getElementById('trafficFileInput').click());
+document.getElementById('trafficFileInput').addEventListener('change', e => e.target.files.length && handleTrafficFiles(e.target.files));
+document.getElementById('trafficDropZone').addEventListener('dragover', e => { e.preventDefault(); document.getElementById('trafficDropZone').classList.add('drag'); });
+document.getElementById('trafficDropZone').addEventListener('dragleave', () => document.getElementById('trafficDropZone').classList.remove('drag'));
+document.getElementById('trafficDropZone').addEventListener('drop', e => { e.preventDefault(); document.getElementById('trafficDropZone').classList.remove('drag'); handleTrafficFiles(e.dataTransfer.files); });
+
+document.getElementById('trafficLifetimeDropZone').addEventListener('click', () => document.getElementById('trafficLifetimeFileInput').click());
+document.getElementById('trafficLifetimeFileInput').addEventListener('change', e => e.target.files.length && handleTrafficLifetimeFiles(e.target.files));
+document.getElementById('trafficLifetimeDropZone').addEventListener('dragover', e => { e.preventDefault(); document.getElementById('trafficLifetimeDropZone').classList.add('drag'); });
+document.getElementById('trafficLifetimeDropZone').addEventListener('dragleave', () => document.getElementById('trafficLifetimeDropZone').classList.remove('drag'));
+document.getElementById('trafficLifetimeDropZone').addEventListener('drop', e => { e.preventDefault(); document.getElementById('trafficLifetimeDropZone').classList.remove('drag'); handleTrafficLifetimeFiles(e.dataTransfer.files); });
+
+document.getElementById('logoFileInput').addEventListener('change', e => e.target.files[0] && handleLogoFile(e.target.files[0]));
+
+document.addEventListener('click', e => {
+  if (e.target.id === 'watchTimeDropZone' || e.target.closest('#watchTimeDropZone')) {
+    document.getElementById('watchTimeFileInput')?.click();
+  }
+});
+document.addEventListener('change', e => { if (e.target.id === 'watchTimeFileInput' && e.target.files.length) handleWatchTimeFiles(e.target.files); });
+document.addEventListener('dragover', e => { if (e.target.id === 'watchTimeDropZone' || e.target.closest('#watchTimeDropZone')) { e.preventDefault(); } });
+document.addEventListener('drop', e => {
+  const zone = e.target.id === 'watchTimeDropZone' ? e.target : e.target.closest?.('#watchTimeDropZone');
+  if (zone) { e.preventDefault(); handleWatchTimeFiles(e.dataTransfer.files); }
+});
+
+document.body.addEventListener('change', e => { if (e.target.id === 'restoreInput' && e.target.files[0]) importBackupFile(e.target.files[0]); });
+
+loadPulls();
+loadQuarterPlans();
+render();
+</script>
+</body>
+</html>
