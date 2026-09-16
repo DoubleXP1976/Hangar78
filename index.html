@@ -185,7 +185,8 @@
   .compare-search-row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
   .compare-search-row input[type=text] { flex:1; min-width:180px; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:9px 12px; color:#fff; font-size:13px; }
   .compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
-  @media (max-width:640px) { .compare-grid { grid-template-columns:1fr; } }
+  @media (max-width:700px) { .compare-grid { grid-template-columns:1fr !important; } .split-grid { grid-template-columns:1fr !important; } .mm-stat-row { grid-template-columns:1fr !important; } }
+  .container { overflow-x:hidden; }
   .compare-col { background:#1a1a1a; border-radius:12px; padding:14px; border-top:3px solid #444; }
   .compare-col.mine { border-top-color:#ff0000; }
   .compare-col.theirs { border-top-color:#ec4899; }
@@ -788,13 +789,20 @@ function computeSimpleGrade(myVal, theirVal, higherIsBetter=true) {
   if (myVal == null || theirVal == null) return { letter:'—', diffPct: null };
   const diff = theirVal === 0 ? (myVal>0?100:0) : ((myVal - theirVal) / Math.abs(theirVal)) * 100;
   const effectiveDiff = higherIsBetter ? diff : -diff;
+  // Widened, fairer bands: small gaps land in B/C, only large gaps hit A or F
   let letter;
-  if (effectiveDiff >= 25) letter = 'A';
-  else if (effectiveDiff >= 5) letter = 'B';
-  else if (effectiveDiff >= -5) letter = 'C';
-  else if (effectiveDiff >= -25) letter = 'D';
+  if (effectiveDiff >= 50) letter = 'A';
+  else if (effectiveDiff >= 15) letter = 'B';
+  else if (effectiveDiff >= -15) letter = 'C';
+  else if (effectiveDiff >= -50) letter = 'D';
   else letter = 'F';
   return { letter, diffPct: diff };
+}
+
+function monthsSince(publishedAt) {
+  if (!publishedAt) return null;
+  const months = (new Date() - new Date(publishedAt)) / (1000*60*60*24*30.44);
+  return Math.max(months, 0.5); // floor to avoid divide-by-near-zero for brand new channels
 }
 
 async function runCompetitorComparison() {
@@ -838,6 +846,12 @@ function renderCompetitorComparison() {
   const myAvgViews28 = mine.recent28.count ? mine.recent28.totalViews / mine.recent28.count : null;
   const theirAvgViews28 = theirs.recent28.count ? theirs.recent28.totalViews / theirs.recent28.count : null;
 
+  const myMonths = monthsSince(mine.publishedAt), theirMonths = monthsSince(theirs.publishedAt);
+  const mySubsPerMonth = (mine.subscriberCount!=null && myMonths) ? mine.subscriberCount/myMonths : null;
+  const theirSubsPerMonth = (theirs.subscriberCount!=null && theirMonths) ? theirs.subscriberCount/theirMonths : null;
+  const myViewsPerMonth = myMonths ? mine.viewCount/myMonths : null;
+  const theirViewsPerMonth = theirMonths ? theirs.viewCount/theirMonths : null;
+
   function col(cls, chan, is28Avg) {
     return `<div class="compare-col ${cls}">
       <div class="compare-channel-head">
@@ -846,32 +860,27 @@ function renderCompetitorComparison() {
       </div>
       <div class="compare-stat-row"><span class="lbl">Total Subscribers</span><span class="val">${chan.subscriberCount!=null?fmt(chan.subscriberCount):'Hidden'}</span></div>
       <div class="compare-stat-row"><span class="lbl">Lifetime Views</span><span class="val">${fmt(chan.viewCount)}</span></div>
-      <div class="compare-stat-row"><span class="lbl">Total Videos</span><span class="val">${fmt(chan.videoCount)}</span></div>
-      <div class="compare-stat-row"><span class="lbl">Channel Age</span><span class="val">${channelAgeLabel(chan.publishedAt)}</span></div>
-      <div class="compare-stat-row"><span class="lbl">Videos in Last 28d</span><span class="val">${chan.recent28.count}</span></div>
       <div class="compare-stat-row"><span class="lbl">Views (Last 28d uploads)</span><span class="val">${fmt(chan.recent28.totalViews)}</span></div>
       <div class="compare-stat-row"><span class="lbl">Avg Views/Video (28d)</span><span class="val">${is28Avg!=null?fmt(Math.round(is28Avg)):'—'}</span></div>
     </div>`;
   }
 
   const grades = [
-    { label: 'Total Subscribers', g: computeSimpleGrade(mine.subscriberCount, theirs.subscriberCount) },
-    { label: 'Lifetime Views', g: computeSimpleGrade(mine.viewCount, theirs.viewCount) },
-    { label: 'Upload Activity (28d)', g: computeSimpleGrade(mine.recent28.count, theirs.recent28.count) },
+    { label: 'Subscriber Growth Rate (per month since launch)', g: computeSimpleGrade(mySubsPerMonth, theirSubsPerMonth) },
+    { label: 'Lifetime View Growth Rate (per month since launch)', g: computeSimpleGrade(myViewsPerMonth, theirViewsPerMonth) },
+    { label: 'Recent Views (Last 28d uploads)', g: computeSimpleGrade(mine.recent28.totalViews, theirs.recent28.totalViews) },
     { label: 'Avg Views/Video (28d)', g: computeSimpleGrade(myAvgViews28, theirAvgViews28) },
   ];
 
   let html = `<div class="compare-grid">${col('mine', mine, myAvgViews28)}${col('theirs', theirs, theirAvgViews28)}</div>`;
   html += `<div style="margin-top:16px;">
-    <div class="subsectiontitle">Head-to-Head Grades (relative comparison, public data only)</div>`;
+    <div class="subsectiontitle">Head-to-Head Grades (growth-rate normalized — fair across channel ages)</div>
+    <div style="font-size:11px; color:#888; margin-bottom:8px;">Subscriber and view totals are divided by each channel's age in months, so a newer fast-growing channel isn't unfairly penalized against an older one that's had more time to accumulate raw numbers.</div>`;
   grades.forEach(row => {
-    html += `<div class="compare-grade-row">
-      <span>${row.label}</span>
-      <span class="compare-mini-grade grade-${row.g.letter}">${row.g.letter}</span>
-    </div>`;
+    html += `<div class="compare-grade-row"><span>${row.label}</span><span class="compare-mini-grade grade-${row.g.letter}">${row.g.letter}</span></div>`;
   });
   html += `</div>
-  <div class="not-available" style="margin-top:12px;">ℹ️ Only public metrics are available for other channels (subscribers, lifetime views, video count, recent upload stats). Private analytics like watch time, CTR, retention, and traffic sources are only accessible to a channel's own owner — no API can bypass that, for anyone's privacy and security.</div>`;
+  <div class="not-available" style="margin-top:12px;">ℹ️ Only public metrics are available for other channels. Private analytics like watch time, CTR, retention, and traffic sources are only accessible to a channel's own owner — no API can bypass that, for anyone's privacy and security.</div>`;
   el.innerHTML = html;
 }
 
@@ -1400,8 +1409,17 @@ function render() {
   }
   if (!state.isSignedIn) return;
 
-  renderLifetimeArea();
-  renderCompetitorComparison();
+  function safeRender(label, fn) {
+    try { fn(); }
+    catch(e) {
+      console.error(`[render error in ${label}]`, e);
+      const dash = document.getElementById('dashboardArea');
+      if (dash) dash.innerHTML += `<div class="card" style="border-color:#ef4444;"><div style="color:#ef4444; font-size:12px;">⚠️ A section (${label}) failed to render: ${e.message}. Other sections below should still work — screenshot this for troubleshooting.</div></div>`;
+    }
+  }
+
+  safeRender('Lifetime Area', renderLifetimeArea);
+  safeRender('Competitor Comparison', renderCompetitorComparison);
 
   const dash = document.getElementById('dashboardArea');
   if (!state.pulls.length) { dash.innerHTML = `<div class="empty">No snapshots yet — use the panel above to fetch your first one.</div>`; return; }
@@ -1409,62 +1427,72 @@ function render() {
   const latest = state.pulls[state.pulls.length-1];
   const prev = state.pulls[state.pulls.length-2];
 
-  function kpi(label, val, prevVal, suffix, formatFn, disabled) {
-    const d = fmtDelta(val, prevVal);
-    let deltaHtml = '';
-    if (d !== null) { const cls = d>0?'up':d<0?'down':'flat'; const arrow = d>0?'▲':d<0?'▼':'–'; deltaHtml = `<div class="delta ${cls}">${arrow} ${d>0?'+':''}${formatFn?formatFn(Math.abs(d)):fmt(d)+(suffix||'')} vs last</div>`; }
-    const displayVal = disabled ? 'N/A' : (val==null ? '—' : (formatFn ? formatFn(val) : fmt(val)+(suffix||'')));
-    return `<div class="kpi ${disabled?'disabled-metric':''}"><div class="lbl">${label}: &nbsp;</div><div class="val">${displayVal}</div>${disabled?'':deltaHtml}</div>`;
+  try {
+    function kpi(label, val, prevVal, suffix, formatFn, disabled) {
+      const d = fmtDelta(val, prevVal);
+      let deltaHtml = '';
+      if (d !== null) { const cls = d>0?'up':d<0?'down':'flat'; const arrow = d>0?'▲':d<0?'▼':'–'; deltaHtml = `<div class="delta ${cls}">${arrow} ${d>0?'+':''}${formatFn?formatFn(Math.abs(d)):fmt(d)+(suffix||'')} vs last</div>`; }
+      const displayVal = disabled ? 'N/A' : (val==null ? '—' : (formatFn ? formatFn(val) : fmt(val)+(suffix||'')));
+      return `<div class="kpi ${disabled?'disabled-metric':''}"><div class="lbl">${label}: &nbsp;</div><div class="val">${displayVal}</div>${disabled?'':deltaHtml}</div>`;
+    }
+
+    let html = `<div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;">Latest snapshot — ${latest.label}</div>
+    <div class="kpi-grid">
+      ${kpi('Views', latest.totals?.views, prev?.totals?.views)}
+      ${kpi('Engaged Views', latest.totals?.engagedViews, prev?.totals?.engagedViews)}
+      ${kpi('Watch Time (hrs)', latest.totals?.watchTimeHours, prev?.totals?.watchTimeHours)}
+      ${kpi('Subscribers Gained', latest.totals?.subscribers, prev?.totals?.subscribers)}
+      ${kpi('Total Subscribers', latest.totals?.totalSubscribers, prev?.totals?.totalSubscribers)}
+      ${kpi('Avg View Duration', latest.totals?.avgViewDurationSec, prev?.totals?.avgViewDurationSec, '', formatSeconds)}
+      ${kpi('Engagement Rate', latest.totals?.engagementRate, prev?.totals?.engagementRate, '%')}
+      ${kpi('Avg CTR', null, null, '%', null, true)}
+      ${kpi('Retention', null, null, '%', null, true)}
+    </div>
+    <div class="not-available" style="margin-top:10px;">ℹ️ CTR and Retention % show N/A — these require YouTube Studio's UI and aren't exposed by the public Analytics API.</div>`;
+
+    try { html += `<div style="margin-top:16px;">${renderEngagedViewsSpotlight()}</div>`; } catch(e) { console.error('[EngagedViewsSpotlight]', e); html += `<div class="card"><div style="color:#ef4444; font-size:12px;">⚠️ Engaged Views section failed: ${e.message}</div></div>`; }
+    try { html += `<div style="margin-top:16px;">${renderMilestoneTracker()}</div>`; } catch(e) { console.error('[MilestoneTracker]', e); html += `<div class="card"><div style="color:#ef4444; font-size:12px;">⚠️ Milestone Tracker failed: ${e.message}</div></div>`; }
+    try { html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Views by Content Type — ${latest.label}</div>${renderContentSplit(latest.totals, latest.liveTotals, latest.shortTotals)}</div>`; } catch(e) { console.error('[ContentSplit]', e); }
+    try { html += `<div style="margin-top:20px;">${renderGrades()}</div>`; } catch(e) { console.error('[Grades]', e); html += `<div class="card"><div style="color:#ef4444; font-size:12px;">⚠️ Performance Grades failed: ${e.message}</div></div>`; }
+
+    try {
+      const trendData = state.pulls.map(p => ({ label:p.label, views:p.totals?.views??null, engagedViews:p.totals?.engagedViews??null, subscribers:p.totals?.subscribers??null }));
+      if (trendData.length >= 2) {
+        html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Views & Subscribers over time</div>${svgLineChart(trendData)}
+          <div class="legend"><span><span class="dot" style="background:#ff0000;"></span>Views</span><span><span class="dot" style="background:#3ea6ff;"></span>Engaged Views</span><span><span class="dot" style="background:#2ba640;"></span>Subscribers (dashed)</span></div>
+        </div>`;
+      }
+    } catch(e) { console.error('[TrendChart]', e); }
+
+    try {
+      const videoMap = {};
+      state.pulls.forEach(p => (p.videos||[]).forEach(v => {
+        if (!videoMap[v.id]) videoMap[v.id] = { id:v.id, title:v.title, isLive:v.isLive, history:[] };
+        videoMap[v.id].history.push({ label:p.label, views:v.views }); videoMap[v.id].title = v.title; videoMap[v.id].isLive = v.isLive;
+      }));
+      const tracked = Object.values(videoMap).sort((a,b) => (b.history[b.history.length-1].views||0)-(a.history[a.history.length-1].views||0)).slice(0,15);
+      if (tracked.length) {
+        let rows = tracked.map(v => {
+          const h = v.history, last=h[h.length-1].views, first=h[0].views;
+          let trend = '<span style="color:#555;">single pull</span>';
+          if (h.length>=2) trend = last>first ? '<span style="color:#4caf50;">▲ improving</span>' : last<first ? '<span style="color:#ff5252;">▼ declining</span>' : '<span style="color:#888;">– flat</span>';
+          return `<tr><td>${v.isLive?'🔴 ':''}${v.title}</td><td class="r">${fmt(last)}</td><td class="r">${trend}</td></tr>`;
+        }).join('');
+        html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Video-level tracker (top 15 by views)</div><table><thead><tr><th>Video</th><th class="r">Latest Views</th><th class="r">Trend</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+    } catch(e) { console.error('[VideoTracker]', e); }
+
+    try {
+      let histRows = [...state.pulls].reverse().map(p => `<div class="hist-row"><div><strong>${p.label}</strong><span class="meta">${fmt(p.totals?.views)} views · ${fmt(p.totals?.subscribers)} subs gained${p.totals?.totalSubscribers!=null?' · '+fmt(p.totals.totalSubscribers)+' total subs':''}</span></div><button onclick="deletePull('${p.id}')">🗑</button></div>`).join('');
+      html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">📝 Channel Performance Summary</div>${renderPerformanceSummary()}</div>`;
+      html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Snapshot history</div>${histRows}</div>`;
+    } catch(e) { console.error('[PerformanceSummary/History]', e); html += `<div class="card"><div style="color:#ef4444; font-size:12px;">⚠️ Performance Summary or History failed: ${e.message}</div></div>`; }
+
+    dash.innerHTML = html;
+  } catch(e) {
+    console.error('[Main dashboard render failed]', e);
+    dash.innerHTML = `<div class="card" style="border-color:#ef4444;"><div style="color:#ef4444; font-size:13px;">⚠️ Dashboard failed to render: ${e.message}<br><br>Please screenshot this and the browser console for troubleshooting.</div></div>`;
   }
-
-  let html = `<div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;">Latest snapshot — ${latest.label}</div>
-  <div class="kpi-grid">
-    ${kpi('Views', latest.totals?.views, prev?.totals?.views)}
-    ${kpi('Engaged Views', latest.totals?.engagedViews, prev?.totals?.engagedViews)}
-    ${kpi('Watch Time (hrs)', latest.totals?.watchTimeHours, prev?.totals?.watchTimeHours)}
-    ${kpi('Subscribers Gained', latest.totals?.subscribers, prev?.totals?.subscribers)}
-    ${kpi('Total Subscribers', latest.totals?.totalSubscribers, prev?.totals?.totalSubscribers)}
-    ${kpi('Avg View Duration', latest.totals?.avgViewDurationSec, prev?.totals?.avgViewDurationSec, '', formatSeconds)}
-    ${kpi('Engagement Rate', latest.totals?.engagementRate, prev?.totals?.engagementRate, '%')}
-    ${kpi('Avg CTR', null, null, '%', null, true)}
-    ${kpi('Retention', null, null, '%', null, true)}
-  </div>
-  <div class="not-available" style="margin-top:10px;">ℹ️ CTR and Retention % show N/A — these require YouTube Studio's UI and aren't exposed by the public Analytics API.</div>`;
-
-  html += `<div style="margin-top:16px;">${renderEngagedViewsSpotlight()}</div>`;
-  html += `<div style="margin-top:16px;">${renderMilestoneTracker()}</div>`;
-  html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Views by Content Type — ${latest.label}</div>${renderContentSplit(latest.totals, latest.liveTotals, latest.shortTotals)}</div>`;
-  html += `<div style="margin-top:20px;">${renderGrades()}</div>`;
-
-  const trendData = state.pulls.map(p => ({ label:p.label, views:p.totals?.views??null, engagedViews:p.totals?.engagedViews??null, subscribers:p.totals?.subscribers??null }));
-  if (trendData.length >= 2) {
-    html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Views & Subscribers over time</div>${svgLineChart(trendData)}
-      <div class="legend"><span><span class="dot" style="background:#ff0000;"></span>Views</span><span><span class="dot" style="background:#3ea6ff;"></span>Engaged Views</span><span><span class="dot" style="background:#2ba640;"></span>Subscribers (dashed)</span></div>
-    </div>`;
-  }
-
-  const videoMap = {};
-  state.pulls.forEach(p => (p.videos||[]).forEach(v => {
-    if (!videoMap[v.id]) videoMap[v.id] = { id:v.id, title:v.title, isLive:v.isLive, history:[] };
-    videoMap[v.id].history.push({ label:p.label, views:v.views }); videoMap[v.id].title = v.title; videoMap[v.id].isLive = v.isLive;
-  }));
-  const tracked = Object.values(videoMap).sort((a,b) => (b.history[b.history.length-1].views||0)-(a.history[a.history.length-1].views||0)).slice(0,15);
-  if (tracked.length) {
-    let rows = tracked.map(v => {
-      const h = v.history, last=h[h.length-1].views, first=h[0].views;
-      let trend = '<span style="color:#555;">single pull</span>';
-      if (h.length>=2) trend = last>first ? '<span style="color:#4caf50;">▲ improving</span>' : last<first ? '<span style="color:#ff5252;">▼ declining</span>' : '<span style="color:#888;">– flat</span>';
-      return `<tr><td>${v.isLive?'🔴 ':''}${v.title}</td><td class="r">${fmt(last)}</td><td class="r">${trend}</td></tr>`;
-    }).join('');
-    html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Video-level tracker (top 15 by views)</div><table><thead><tr><th>Video</th><th class="r">Latest Views</th><th class="r">Trend</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  }
-
-  let histRows = [...state.pulls].reverse().map(p => `<div class="hist-row"><div><strong>${p.label}</strong><span class="meta">${fmt(p.totals?.views)} views · ${fmt(p.totals?.subscribers)} subs gained${p.totals?.totalSubscribers!=null?' · '+fmt(p.totals.totalSubscribers)+' total subs':''}</span></div><button onclick="deletePull('${p.id}')">🗑</button></div>`).join('');
-
-  html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">📝 Channel Performance Summary</div>${renderPerformanceSummary()}</div>`;
-  html += `<div class="card" style="margin-top:16px;"><div class="sectiontitle">Snapshot history</div>${histRows}</div>`;
-
-  dash.innerHTML = html;
 }
 </script>
 </body>
