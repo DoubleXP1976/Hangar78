@@ -1175,36 +1175,7 @@ function svgWorldMap(countries) {
   return svg;
 }
 
-function renderGeographyCard(pull) {
-  const geo = pull?.geography;
-  if (!geo || !geo.length) {
-    return `<div class="card" style="margin-top:16px;"><div class="sectiontitle">🌍 Where Your Viewers Are — ${pull?.label||''}</div><div class="lt-empty">No geographic data for this period.</div></div>`;
-  }
-  const totalViews = geo.reduce((a,c)=>a+c.views,0);
-  const maxPct = Math.max(...geo.map(c=>c.pctViews));
-
-  let html = `<div class="card" style="margin-top:16px;">
-    <div class="sectiontitle">🌍 Where Your Viewers Are — ${pull.label}</div>
-    <div style="font-size:11px; color:#888; margin-bottom:10px;">Live country-level data from the YouTube Analytics API. Pin size &amp; color = view volume (heat scale: blue = low, red = high).</div>
-    ${svgWorldMap(geo)}
-    <div class="subsectiontitle">Top Countries (Ranked)</div>
-    <div style="display:flex; flex-direction:column; gap:7px;">`;
-  geo.slice(0,12).forEach(c => {
-    const color = heatColor((c.pctViews/maxPct)*100);
-    html += `<div>
-      <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px;">
-        <span>${c.flag} ${c.name}${c.unknown?' <span style="color:#666;">(code: '+c.code+')</span>':''}</span>
-        <span style="color:#aaa;">${fmt(c.views)} views · ${c.pctViews.toFixed(1)}%</span>
-      </div>
-      <div style="background:#1f1f1f; border-radius:4px; height:7px; overflow:hidden;">
-        <div style="background:${color}; height:100%; width:${Math.max(c.pctViews,1)}%;"></div>
-      </div>
-    </div>`;
-  });
-  html += `</div></div>`;
-  return html;
-}
-function renderContentSplit(totals, liveTotals, shortTotals) {
+function renderTrafficShiftTable() {
   function col(cls, icon, title, t) {
     if (!t) return `<div class="split-col ${cls}"><div class="sctitle">${icon} ${title}</div><div style="color:#666; font-size:12px;">No data</div></div>`;
     return `<div class="split-col ${cls}">
