@@ -498,8 +498,9 @@ const SOURCE_COLORS = {
 };
 function sourceColor(name) { return SOURCE_COLORS[name] || '#666'; }
 
+// ================= VERIFICATION MARKER: SORT-PARAM-FIX-V2 =================
 async function fetchTrafficSources(start, end) {
-  console.log(`[fetchTrafficSources] Requesting range: ${start} to ${end}`);
+  console.log('[SORT-FIX-V2] fetchTrafficSources running WITHOUT sort param, range:', start, end);
   const rep = await queryAnalytics({
     ids: 'channel==MINE', startDate: start, endDate: end,
     metrics: 'views,estimatedMinutesWatched', dimensions: 'insightTrafficSourceType',
@@ -545,6 +546,7 @@ const COUNTRY_INFO = {
 function countryInfo(code) { return COUNTRY_INFO[code] || { name: code, flag: '🌐', lat: 0, lon: 0, unknown: true }; }
 
 async function fetchGeography(start, end) {
+  console.log('[SORT-FIX-V2] fetchGeography running WITHOUT sort param, range:', start, end);
   const rep = await queryAnalytics({
     ids: 'channel==MINE', startDate: start, endDate: end,
     metrics: 'views,estimatedMinutesWatched', dimensions: 'country', maxResults: 50,
