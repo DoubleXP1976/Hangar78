@@ -6,6 +6,8 @@
 <title>HANGAR 78 Analytics Tracker — G.01</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -265,11 +267,13 @@ const DISCOVERY_DOCS = [
 
 const STORAGE_KEY = "hangar78-api-pulls-v1";
 const LIFETIME_KEY = "hangar78-api-lifetime-v1";
+const RECENT28_KEY = "hangar78-api-recent28-v1";
 const QUARTER_PLANS_KEY = "hangar78-api-quarterplans-v1";
 
 let state = {
   pulls: [],
   lifetime: null,
+  recent28: null,
   quarterPlans: {},
   selectedQuarter: null,
   fetchMode: '28d',
@@ -286,10 +290,12 @@ let state = {
 function loadLocalData() {
   try { const raw = localStorage.getItem(STORAGE_KEY); state.pulls = raw ? JSON.parse(raw) : []; } catch(e) { state.pulls = []; }
   try { const rawL = localStorage.getItem(LIFETIME_KEY); state.lifetime = rawL ? JSON.parse(rawL) : null; } catch(e) { state.lifetime = null; }
+  try { const rawR = localStorage.getItem(RECENT28_KEY); state.recent28 = rawR ? JSON.parse(rawR) : null; } catch(e) { state.recent28 = null; }
   try { const rawQ = localStorage.getItem(QUARTER_PLANS_KEY); state.quarterPlans = rawQ ? JSON.parse(rawQ) : {}; } catch(e) { state.quarterPlans = {}; }
 }
 function savePulls() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.pulls)); } catch(e) { setFetchStatus('err','Could not save locally: '+e.message); } }
 function saveLifetime() { try { localStorage.setItem(LIFETIME_KEY, JSON.stringify(state.lifetime)); } catch(e) {} }
+function saveRecent28() { try { localStorage.setItem(RECENT28_KEY, JSON.stringify(state.recent28)); } catch(e) {} }
 function saveQuarterPlans() { try { localStorage.setItem(QUARTER_PLANS_KEY, JSON.stringify(state.quarterPlans)); } catch(e) {} }
 
 // ================= AUTH (Google Identity Services) =================
@@ -297,7 +303,27 @@ window.onload = function() {
   loadLocalData();
   initGis();
   initGapi();
+  loadWorldMapPaths();
 };
+
+// ================= REAL WORLD MAP (D3 + world-atlas, cached once) =================
+let worldMapPathsCache = null;
+async function loadWorldMapPaths() {
+  try {
+    const w = 900, h = 420;
+    const topo = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(r => r.json());
+    const geo = topojson.feature(topo, topo.objects.countries);
+    const projection = d3.geoEquirectangular().fitSize([w-20, h-20], geo).translate([w/2, h/2]);
+    const pathGen = d3.geoPath(projection);
+    const countryPaths = geo.features.map(f => `<path d="${pathGen(f)}" fill="#16223a" stroke="#28405e" stroke-width="0.6"/>`).join('');
+    worldMapPathsCache = { countryPaths, project: (lat, lon) => projection([lon, lat]), w, h };
+  } catch (e) {
+    console.error('World map load failed, falling back to grid:', e);
+    worldMapPathsCache = null;
+  } finally {
+    render();
+  }
+}
 
 function initGis() {
   const check = setInterval(() => {
@@ -691,10 +717,16 @@ async function refreshLifetime() {
   const btn = document.getElementById('refreshLifetimeBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Refreshing…'; }
   try {
-    const range = computeRangeForMode('lifetime');
-    const pull = await fetchAndBuildPull(range.start, range.end, 'Lifetime');
-    state.lifetime = { ...pull, rangeLabel: `${range.start} → ${range.end}`, daysCovered: pull.dailySeries.points.length };
+    const ltRange = computeRangeForMode('lifetime');
+    const recentRange = computeRangeForMode('28d');
+    const [ltPull, recentPull] = await Promise.all([
+      fetchAndBuildPull(ltRange.start, ltRange.end, 'Lifetime'),
+      fetchAndBuildPull(recentRange.start, recentRange.end, 'Last 28 Days'),
+    ]);
+    state.lifetime = { ...ltPull, rangeLabel: `${ltRange.start} → ${ltRange.end}`, daysCovered: ltPull.dailySeries.points.length };
+    state.recent28 = recentPull;
     saveLifetime();
+    saveRecent28();
     render();
   } catch(e) {
     setFetchStatus('err', 'Lifetime refresh failed: ' + (e?.result?.error?.message || e.message));
@@ -985,28 +1017,67 @@ function renderEngagedViewsSpotlight() {
 }
 
 // ================= TRAFFIC SOURCES =================
-function renderTrafficSourcesCard(pull) {
-  const sources = pull?.trafficSources;
-  if (!sources || !sources.length) {
-    return `<div class="card" style="margin-top:16px;"><div class="sectiontitle">🧭 Traffic Sources — ${pull?.label||''}</div><div class="lt-empty">No traffic source data for this period.</div></div>`;
+function renderTrafficSourcesCard(pullA, pullB) {
+  // pullA = lifetime, pullB = recent 28 days (optional comparison)
+  if (!pullA?.trafficSources?.length) {
+    return `<div class="card" style="margin-top:16px;"><div class="sectiontitle">🧭 Traffic Sources</div><div class="lt-empty">No traffic source data.</div></div>`;
+  }
+  function renderList(pull) {
+    if (!pull?.trafficSources?.length) return `<div class="lt-empty">No data for this window.</div>`;
+    let html = `<div style="display:flex; flex-direction:column; gap:7px;">`;
+    pull.trafficSources.slice(0,8).forEach(s => {
+      const color = sourceColor(s.name);
+      html += `<div>
+        <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:3px;">
+          <span><span class="dot" style="background:${color};"></span> ${s.name}</span>
+          <span style="color:#aaa;">${s.pctViews.toFixed(1)}%</span>
+        </div>
+        <div style="background:#1f1f1f; border-radius:4px; height:7px; overflow:hidden;">
+          <div style="background:${color}; height:100%; width:${Math.max(s.pctViews,1)}%;"></div>
+        </div>
+      </div>`;
+    });
+    return html + `</div>`;
   }
   let html = `<div class="card" style="margin-top:16px;">
-    <div class="sectiontitle">🧭 Traffic Sources — ${pull.label}</div>
-    <div style="font-size:11px; color:#888; margin-bottom:10px;">Where your views actually come from — is the algorithm pushing you, or is search/external driving traffic?</div>
-    <div style="display:flex; flex-direction:column; gap:8px;">`;
-  sources.slice(0,10).forEach(s => {
-    const color = sourceColor(s.name);
-    html += `<div>
-      <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px;">
-        <span><span class="dot" style="background:${color};"></span> ${s.name}</span>
-        <span style="color:#aaa;">${fmt(s.views)} views · ${s.pctViews.toFixed(1)}%</span>
-      </div>
-      <div style="background:#1f1f1f; border-radius:4px; height:8px; overflow:hidden;">
-        <div style="background:${color}; height:100%; width:${Math.max(s.pctViews,1)}%;"></div>
-      </div>
-    </div>`;
-  });
-  html += `</div></div>`;
+    <div class="sectiontitle">🧭 Traffic Sources — Lifetime vs. Last 28 Days</div>
+    <div style="font-size:11px; color:#888; margin-bottom:12px;">Compare your all-time discovery mix against what's happening right now — is your recent traffic shifting toward or away from algorithm push?</div>
+    <div class="split-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="split-col total"><div class="sctitle">🏆 Lifetime (${pullA.label})</div>${renderList(pullA)}</div>
+      <div class="split-col live" style="border-top-color:#3ea6ff;"><div class="sctitle" style="color:#3ea6ff;">📅 Last 28 Days${pullB?` (${pullB.label})`:''}</div>${renderList(pullB)}</div>
+    </div>
+  </div>`;
+  return html;
+}
+
+function renderGeographyCard(pullA, pullB) {
+  if (!pullA?.geography?.length) {
+    return `<div class="card" style="margin-top:16px;"><div class="sectiontitle">🌍 Where Your Viewers Are</div><div class="lt-empty">No geographic data.</div></div>`;
+  }
+  function rankedList(geo) {
+    if (!geo?.length) return `<div class="lt-empty">No data for this window.</div>`;
+    const maxPct = Math.max(...geo.map(c=>c.pctViews));
+    let html = `<div style="display:flex; flex-direction:column; gap:6px;">`;
+    geo.slice(0,10).forEach(c => {
+      const color = heatColor((c.pctViews/maxPct)*100);
+      html += `<div>
+        <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:3px;">
+          <span>${c.flag} ${c.name}</span><span style="color:#aaa;">${c.pctViews.toFixed(1)}%</span>
+        </div>
+        <div style="background:#1f1f1f; border-radius:4px; height:6px; overflow:hidden;"><div style="background:${color}; height:100%; width:${Math.max(c.pctViews,1)}%;"></div></div>
+      </div>`;
+    });
+    return html + `</div>`;
+  }
+  let html = `<div class="card" style="margin-top:16px;">
+    <div class="sectiontitle">🌍 Where Your Viewers Are — ${pullA.label}</div>
+    <div style="font-size:11px; color:#888; margin-bottom:10px;">Live country-level data from the YouTube Analytics API. Pin size &amp; color = view volume.</div>
+    ${svgWorldMap(pullA.geography)}
+    <div class="split-grid" style="grid-template-columns:1fr 1fr; margin-top:16px;">
+      <div class="split-col total"><div class="sctitle">🏆 Lifetime Top Countries</div>${rankedList(pullA.geography)}</div>
+      <div class="split-col live" style="border-top-color:#3ea6ff;"><div class="sctitle" style="color:#3ea6ff;">📅 Last 28 Days Top Countries</div>${rankedList(pullB?.geography)}</div>
+    </div>
+  </div>`;
   return html;
 }
 
@@ -1052,22 +1123,25 @@ function heatColor(pct) {
 
 function svgWorldMap(countries) {
   const w = 900, h = 420, pad = 10;
-  function project(lat, lon) {
-    const x = pad + ((lon+180)/360) * (w-pad*2);
-    const y = pad + ((90-lat)/180) * (h-pad*2);
-    return [x,y];
+  let project;
+  let backgroundSvg = '';
+
+  if (worldMapPathsCache) {
+    project = worldMapPathsCache.project;
+    backgroundSvg = worldMapPathsCache.countryPaths;
+  } else {
+    project = (lat, lon) => [pad + ((lon+180)/360) * (w-pad*2), pad + ((90-lat)/180) * (h-pad*2)];
+    for (let lon=-180; lon<=180; lon+=30) { const [x] = project(0,lon); backgroundSvg += `<line x1="${x}" y1="${pad}" x2="${x}" y2="${h-pad}" stroke="#1c2a3d" stroke-width="1"/>`; }
+    for (let lat=-90; lat<=90; lat+=30) { const [,y] = project(lat,0); backgroundSvg += `<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="#1c2a3d" stroke-width="1"/>`; }
   }
+
   const known = countries.filter(c => !c.unknown).slice(0, 30);
   const maxViews = Math.max(1, ...known.map(c => c.views));
 
   let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:100%; background:#0d1420; border-radius:10px;">`;
-  // graticule grid (stylized flat map, not real coastlines)
-  for (let lon=-180; lon<=180; lon+=30) { const [x] = project(0,lon); svg += `<line x1="${x}" y1="${pad}" x2="${x}" y2="${h-pad}" stroke="#1c2a3d" stroke-width="1"/>`; }
-  for (let lat=-90; lat<=90; lat+=30) { const [,y] = project(lat,0); svg += `<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="#1c2a3d" stroke-width="1"/>`; }
-  const [,eqY] = project(0,0);
-  svg += `<line x1="${pad}" y1="${eqY}" x2="${w-pad}" y2="${eqY}" stroke="#2a3f5c" stroke-width="1.5"/>`;
-  svg += `<rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" fill="none" stroke="#2a3f5c" stroke-width="1.5"/>`;
-  svg += `<text x="${pad+6}" y="${pad+16}" fill="#4a6a8a" font-size="11">🌍 Flat equirectangular grid (stylized — not real coastlines)</text>`;
+  svg += backgroundSvg;
+  svg += `<rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" fill="none" stroke="#2a3f5c" stroke-width="1"/>`;
+  svg += `<text x="${pad+6}" y="${pad+16}" fill="#4a6a8a" font-size="11">${worldMapPathsCache ? '🌍 Real world map (Natural Earth 110m)' : '🌍 Loading real map… showing stylized grid for now'}</text>`;
 
   known.forEach(c => {
     const [x,y] = project(c.lat, c.lon);
@@ -1081,6 +1155,14 @@ function svgWorldMap(countries) {
     const [x,y] = project(c.lat, c.lon);
     svg += `<text x="${x}" y="${y-10}" text-anchor="middle" fill="#ddd" font-size="10" font-weight="600">${c.flag} ${c.code}</text>`;
   });
+  svg += `<g transform="translate(${w-190},${h-34})">
+    <text x="0" y="0" fill="#8899aa" font-size="10">Low</text>
+    <rect x="30" y="-9" width="80" height="8" rx="4" fill="url(#heatGrad)"/>
+    <text x="118" y="0" fill="#8899aa" font-size="10">High</text>
+  </g>
+  <defs><linearGradient id="heatGrad" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="${heatColor(0)}"/><stop offset="50%" stop-color="${heatColor(50)}"/><stop offset="100%" stop-color="${heatColor(100)}"/>
+  </linearGradient></defs>`;
   svg += `</svg>`;
   return svg;
 }
@@ -1141,7 +1223,7 @@ function renderLifetimeArea() {
   html += renderContentSplit(lt.totals, lt.liveTotals, lt.shortTotals);
   if (lt.totals.totalSubscribers != null) html += `<div class="lt-compare">Total subscribers as of this refresh: <b>${fmt(lt.totals.totalSubscribers)}</b></div>`;
   area.innerHTML = html;
-  document.getElementById('lifetimeExtras').innerHTML = renderTrafficSourcesCard(lt) + renderGeographyCard(lt);
+  document.getElementById('lifetimeExtras').innerHTML = renderTrafficSourcesCard(lt, state.recent28) + renderGeographyCard(lt, state.recent28);
 }
 
 // ================= MONETIZATION MILESTONE TRACKER =================
