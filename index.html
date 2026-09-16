@@ -205,6 +205,7 @@
       </div>
       <div class="lt-note">Pulled live from your channel's actual creation date through today — real daily data, no yearly-bucket collapsing like CSV exports had.</div>
       <div id="lifetimeArea"></div>
+      <div id="lifetimeExtras"></div>
     </div>
 
     <div class="card fetch-panel">
@@ -445,6 +446,65 @@ const TRAFFIC_SOURCE_LABELS = {
 };
 function trafficLabel(code) { return TRAFFIC_SOURCE_LABELS[code] || code; }
 
+async function fetchTrafficSources(start, end) {
+  const rep = await queryAnalytics({
+    ids: 'channel==MINE', startDate: start, endDate: end,
+    metrics: 'views,estimatedMinutesWatched', dimensions: 'insightTrafficSourceType', sort: '-views',
+  });
+  const rows = rowsToObjects(rep);
+  const totalViews = rows.reduce((a,r) => a + (r.views||0), 0);
+  return rows.map(r => ({
+    name: trafficLabel(r.insightTrafficSourceType),
+    views: r.views, watchTimeHours: r.estimatedMinutesWatched/60,
+    pctViews: totalViews ? (r.views/totalViews)*100 : 0,
+  })).sort((a,b) => b.views - a.views);
+}
+
+const COUNTRY_INFO = {
+  US:{name:'United States',flag:'🇺🇸',lat:39.8,lon:-98.6}, GB:{name:'United Kingdom',flag:'🇬🇧',lat:55.3,lon:-3.4},
+  CA:{name:'Canada',flag:'🇨🇦',lat:56.1,lon:-106.3}, AU:{name:'Australia',flag:'🇦🇺',lat:-25.3,lon:133.8},
+  DE:{name:'Germany',flag:'🇩🇪',lat:51.2,lon:10.4}, FR:{name:'France',flag:'🇫🇷',lat:46.6,lon:2.2},
+  IN:{name:'India',flag:'🇮🇳',lat:20.6,lon:78.9}, BR:{name:'Brazil',flag:'🇧🇷',lat:-14.2,lon:-51.9},
+  MX:{name:'Mexico',flag:'🇲🇽',lat:23.6,lon:-102.6}, JP:{name:'Japan',flag:'🇯🇵',lat:36.2,lon:138.3},
+  KR:{name:'South Korea',flag:'🇰🇷',lat:35.9,lon:127.8}, ES:{name:'Spain',flag:'🇪🇸',lat:40.5,lon:-3.7},
+  IT:{name:'Italy',flag:'🇮🇹',lat:41.9,lon:12.6}, NL:{name:'Netherlands',flag:'🇳🇱',lat:52.1,lon:5.3},
+  PH:{name:'Philippines',flag:'🇵🇭',lat:12.9,lon:121.8}, ID:{name:'Indonesia',flag:'🇮🇩',lat:-0.8,lon:113.9},
+  TH:{name:'Thailand',flag:'🇹🇭',lat:15.9,lon:101.0}, VN:{name:'Vietnam',flag:'🇻🇳',lat:14.1,lon:108.3},
+  MY:{name:'Malaysia',flag:'🇲🇾',lat:4.2,lon:102.0}, SG:{name:'Singapore',flag:'🇸🇬',lat:1.35,lon:103.8},
+  PL:{name:'Poland',flag:'🇵🇱',lat:51.9,lon:19.1}, SE:{name:'Sweden',flag:'🇸🇪',lat:60.1,lon:18.6},
+  NO:{name:'Norway',flag:'🇳🇴',lat:60.5,lon:8.5}, DK:{name:'Denmark',flag:'🇩🇰',lat:56.3,lon:9.5},
+  FI:{name:'Finland',flag:'🇫🇮',lat:61.9,lon:25.7}, IE:{name:'Ireland',flag:'🇮🇪',lat:53.4,lon:-8.2},
+  PT:{name:'Portugal',flag:'🇵🇹',lat:39.4,lon:-8.2}, BE:{name:'Belgium',flag:'🇧🇪',lat:50.5,lon:4.5},
+  CH:{name:'Switzerland',flag:'🇨🇭',lat:46.8,lon:8.2}, AT:{name:'Austria',flag:'🇦🇹',lat:47.5,lon:14.6},
+  CZ:{name:'Czechia',flag:'🇨🇿',lat:49.8,lon:15.5}, RO:{name:'Romania',flag:'🇷🇴',lat:45.9,lon:25.0},
+  GR:{name:'Greece',flag:'🇬🇷',lat:39.07,lon:21.8}, TR:{name:'Turkey',flag:'🇹🇷',lat:39.0,lon:35.2},
+  RU:{name:'Russia',flag:'🇷🇺',lat:61.5,lon:105.3}, UA:{name:'Ukraine',flag:'🇺🇦',lat:48.4,lon:31.2},
+  ZA:{name:'South Africa',flag:'🇿🇦',lat:-30.6,lon:22.9}, NG:{name:'Nigeria',flag:'🇳🇬',lat:9.08,lon:8.68},
+  EG:{name:'Egypt',flag:'🇪🇬',lat:26.8,lon:30.8}, KE:{name:'Kenya',flag:'🇰🇪',lat:-0.02,lon:37.9},
+  SA:{name:'Saudi Arabia',flag:'🇸🇦',lat:23.9,lon:45.08}, AE:{name:'UAE',flag:'🇦🇪',lat:23.4,lon:53.85},
+  IL:{name:'Israel',flag:'🇮🇱',lat:31.05,lon:34.85}, PK:{name:'Pakistan',flag:'🇵🇰',lat:30.4,lon:69.3},
+  BD:{name:'Bangladesh',flag:'🇧🇩',lat:23.7,lon:90.4}, NZ:{name:'New Zealand',flag:'🇳🇿',lat:-40.9,lon:174.9},
+  AR:{name:'Argentina',flag:'🇦🇷',lat:-38.4,lon:-63.6}, CL:{name:'Chile',flag:'🇨🇱',lat:-35.7,lon:-71.5},
+  CO:{name:'Colombia',flag:'🇨🇴',lat:4.6,lon:-74.3}, PE:{name:'Peru',flag:'🇵🇪',lat:-9.19,lon:-75.02},
+  CN:{name:'China',flag:'🇨🇳',lat:35.86,lon:104.2}, TW:{name:'Taiwan',flag:'🇹🇼',lat:23.7,lon:121.0},
+  HK:{name:'Hong Kong',flag:'🇭🇰',lat:22.3,lon:114.17},
+};
+function countryInfo(code) { return COUNTRY_INFO[code] || { name: code, flag: '🌐', lat: 0, lon: 0, unknown: true }; }
+
+async function fetchGeography(start, end) {
+  const rep = await queryAnalytics({
+    ids: 'channel==MINE', startDate: start, endDate: end,
+    metrics: 'views,estimatedMinutesWatched', dimensions: 'country', sort: '-views', maxResults: 50,
+  });
+  const rows = rowsToObjects(rep);
+  const totalViews = rows.reduce((a,r) => a + (r.views||0), 0);
+  return rows.map(r => ({
+    code: r.country, ...countryInfo(r.country),
+    views: r.views, watchTimeHours: r.estimatedMinutesWatched/60,
+    pctViews: totalViews ? (r.views/totalViews)*100 : 0,
+  })).sort((a,b) => b.views - a.views);
+}
+
 function parseISODuration(iso) {
   if (!iso) return null;
   const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
@@ -557,10 +617,12 @@ async function fetchTopVideosWithSplit(start, end) {
 }
 
 async function fetchAndBuildPull(start, end, label) {
-  const [totals, dailySeries, videoData] = await Promise.all([
+  const [totals, dailySeries, videoData, trafficSources, geography] = await Promise.all([
     fetchPeriodTotals(start, end),
     fetchDailySeries(start, end),
     fetchTopVideosWithSplit(start, end),
+    fetchTrafficSources(start, end).catch(() => []),
+    fetchGeography(start, end).catch(() => []),
   ]);
   const subsOverride = document.getElementById('subsOverrideInput')?.value;
   totals.totalSubscribers = subsOverride ? parseFloat(subsOverride) : (state.channelInfo?.subscriberCount ?? null);
@@ -572,6 +634,7 @@ async function fetchAndBuildPull(start, end, label) {
     totals, videos: videoData.videos, liveTotals: videoData.liveTotals, shortTotals: videoData.shortTotals,
     dailySeries: { metricName: 'views', points: dailySeries.map(d => ({ date:d.date, value:d.views })) },
     watchTimeDailySeries: dailySeries.map(d => ({ date:d.date, value:d.watchTimeHours })),
+    trafficSources, geography,
   };
 }
 
@@ -910,7 +973,136 @@ function renderEngagedViewsSpotlight() {
   return `<div class="card engaged-card">${html}</div>`;
 }
 
-// ================= CONTENT SPLIT =================
+// ================= TRAFFIC SOURCES =================
+function renderTrafficSourcesCard(pull) {
+  const sources = pull?.trafficSources;
+  if (!sources || !sources.length) {
+    return `<div class="card" style="margin-top:16px;"><div class="sectiontitle">🧭 Traffic Sources — ${pull?.label||''}</div><div class="lt-empty">No traffic source data for this period.</div></div>`;
+  }
+  let html = `<div class="card" style="margin-top:16px;">
+    <div class="sectiontitle">🧭 Traffic Sources — ${pull.label}</div>
+    <div style="font-size:11px; color:#888; margin-bottom:10px;">Where your views actually come from — is the algorithm pushing you, or is search/external driving traffic?</div>
+    <div style="display:flex; flex-direction:column; gap:8px;">`;
+  sources.slice(0,10).forEach(s => {
+    const color = sourceColor(s.name);
+    html += `<div>
+      <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px;">
+        <span><span class="dot" style="background:${color};"></span> ${s.name}</span>
+        <span style="color:#aaa;">${fmt(s.views)} views · ${s.pctViews.toFixed(1)}%</span>
+      </div>
+      <div style="background:#1f1f1f; border-radius:4px; height:8px; overflow:hidden;">
+        <div style="background:${color}; height:100%; width:${Math.max(s.pctViews,1)}%;"></div>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+function renderTrafficShiftTable() {
+  if (state.pulls.length < 2) return '';
+  const first = state.pulls[0], last = state.pulls[state.pulls.length-1];
+  if (!first.trafficSources?.length || !last.trafficSources?.length) return '';
+  const nameSet = new Set();
+  [...first.trafficSources, ...last.trafficSources].forEach(s => nameSet.add(s.name));
+  const rows = Array.from(nameSet).map(name => {
+    const f = first.trafficSources.find(s=>s.name===name), l = last.trafficSources.find(s=>s.name===name);
+    const fp = f?.pctViews??0, lp = l?.pctViews??0;
+    return { name, fp, lp, diff: lp-fp };
+  }).sort((a,b) => b.lp-a.lp);
+  let html = `<div class="card" style="margin-top:16px;">
+    <div class="sectiontitle">Traffic Source Shift — "${first.label}" → "${last.label}"</div>
+    <table><thead><tr><th>Source</th><th class="r">${first.label}</th><th class="r">${last.label}</th><th class="r">Shift</th></tr></thead><tbody>`;
+  rows.forEach(r => {
+    const cls = r.diff>1?'up':(r.diff<-1?'down':'flat');
+    const arrow = cls==='up'?'▲':(cls==='down'?'▼':'–');
+    html += `<tr><td><span class="dot" style="background:${sourceColor(r.name)};"></span> ${r.name}</td>
+      <td class="r">${r.fp.toFixed(1)}%</td><td class="r">${r.lp.toFixed(1)}%</td>
+      <td class="r"><span class="gc-delta ${cls}">${arrow} ${r.diff>0?'+':''}${r.diff.toFixed(1)}pp</span></td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+// ================= GEOGRAPHY (flat map + ranked list) =================
+function heatColor(pct) {
+  // 0% -> deep blue, 100% -> hot red/orange, smooth interpolation
+  const stops = [
+    { p:0, c:[30,64,175] }, { p:25, c:[59,130,246] }, { p:50, c:[234,179,8] },
+    { p:75, c:[249,115,22] }, { p:100, c:[239,68,68] },
+  ];
+  let lo = stops[0], hi = stops[stops.length-1];
+  for (let i=0;i<stops.length-1;i++) { if (pct>=stops[i].p && pct<=stops[i+1].p) { lo=stops[i]; hi=stops[i+1]; break; } }
+  const range = hi.p-lo.p || 1;
+  const t = (pct-lo.p)/range;
+  const c = lo.c.map((v,i) => Math.round(v + (hi.c[i]-v)*t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+function svgWorldMap(countries) {
+  const w = 900, h = 420, pad = 10;
+  function project(lat, lon) {
+    const x = pad + ((lon+180)/360) * (w-pad*2);
+    const y = pad + ((90-lat)/180) * (h-pad*2);
+    return [x,y];
+  }
+  const known = countries.filter(c => !c.unknown).slice(0, 30);
+  const maxViews = Math.max(1, ...known.map(c => c.views));
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:100%; background:#0d1420; border-radius:10px;">`;
+  // graticule grid (stylized flat map, not real coastlines)
+  for (let lon=-180; lon<=180; lon+=30) { const [x] = project(0,lon); svg += `<line x1="${x}" y1="${pad}" x2="${x}" y2="${h-pad}" stroke="#1c2a3d" stroke-width="1"/>`; }
+  for (let lat=-90; lat<=90; lat+=30) { const [,y] = project(lat,0); svg += `<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="#1c2a3d" stroke-width="1"/>`; }
+  const [,eqY] = project(0,0);
+  svg += `<line x1="${pad}" y1="${eqY}" x2="${w-pad}" y2="${eqY}" stroke="#2a3f5c" stroke-width="1.5"/>`;
+  svg += `<rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" fill="none" stroke="#2a3f5c" stroke-width="1.5"/>`;
+  svg += `<text x="${pad+6}" y="${pad+16}" fill="#4a6a8a" font-size="11">🌍 Flat equirectangular grid (stylized — not real coastlines)</text>`;
+
+  known.forEach(c => {
+    const [x,y] = project(c.lat, c.lon);
+    const pct = (c.views/maxViews)*100;
+    const r = 5 + (c.views/maxViews)*18;
+    const color = heatColor(pct);
+    svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" opacity="0.35"/>`;
+    svg += `<circle cx="${x}" cy="${y}" r="${Math.max(r*0.4,4)}" fill="${color}" stroke="#0a0a0a" stroke-width="1.5"><title>${c.flag} ${c.name}: ${fmt(c.views)} views (${c.pctViews.toFixed(1)}%)</title></circle>`;
+  });
+  known.slice(0,8).forEach(c => {
+    const [x,y] = project(c.lat, c.lon);
+    svg += `<text x="${x}" y="${y-10}" text-anchor="middle" fill="#ddd" font-size="10" font-weight="600">${c.flag} ${c.code}</text>`;
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderGeographyCard(pull) {
+  const geo = pull?.geography;
+  if (!geo || !geo.length) {
+    return `<div class="card" style="margin-top:16px;"><div class="sectiontitle">🌍 Where Your Viewers Are — ${pull?.label||''}</div><div class="lt-empty">No geographic data for this period.</div></div>`;
+  }
+  const totalViews = geo.reduce((a,c)=>a+c.views,0);
+  const maxPct = Math.max(...geo.map(c=>c.pctViews));
+
+  let html = `<div class="card" style="margin-top:16px;">
+    <div class="sectiontitle">🌍 Where Your Viewers Are — ${pull.label}</div>
+    <div style="font-size:11px; color:#888; margin-bottom:10px;">Live country-level data from the YouTube Analytics API. Pin size &amp; color = view volume (heat scale: blue = low, red = high).</div>
+    ${svgWorldMap(geo)}
+    <div class="subsectiontitle">Top Countries (Ranked)</div>
+    <div style="display:flex; flex-direction:column; gap:7px;">`;
+  geo.slice(0,12).forEach(c => {
+    const color = heatColor((c.pctViews/maxPct)*100);
+    html += `<div>
+      <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px;">
+        <span>${c.flag} ${c.name}${c.unknown?' <span style="color:#666;">(code: '+c.code+')</span>':''}</span>
+        <span style="color:#aaa;">${fmt(c.views)} views · ${c.pctViews.toFixed(1)}%</span>
+      </div>
+      <div style="background:#1f1f1f; border-radius:4px; height:7px; overflow:hidden;">
+        <div style="background:${color}; height:100%; width:${Math.max(c.pctViews,1)}%;"></div>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
 function renderContentSplit(totals, liveTotals, shortTotals) {
   function col(cls, icon, title, t) {
     if (!t) return `<div class="split-col ${cls}"><div class="sctitle">${icon} ${title}</div><div style="color:#666; font-size:12px;">No data</div></div>`;
@@ -938,6 +1130,7 @@ function renderLifetimeArea() {
   html += renderContentSplit(lt.totals, lt.liveTotals, lt.shortTotals);
   if (lt.totals.totalSubscribers != null) html += `<div class="lt-compare">Total subscribers as of this refresh: <b>${fmt(lt.totals.totalSubscribers)}</b></div>`;
   area.innerHTML = html;
+  document.getElementById('lifetimeExtras').innerHTML = renderTrafficSourcesCard(lt) + renderGeographyCard(lt);
 }
 
 // ================= MONETIZATION MILESTONE TRACKER =================
