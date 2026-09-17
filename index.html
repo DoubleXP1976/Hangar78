@@ -645,7 +645,19 @@ async function fetchTopVideosWithSplit(start, end) {
   return { videos, liveTotals: agg(videos.filter(v=>v.isLive)), shortTotals: agg(videos.filter(v=>!v.isLive)) };
 }
 
+async function refreshSubscriberCount() {
+  try {
+    const info = await getChannelInfo();
+    state.channelInfo = info; // keeps title/thumbnail/publishedAt in sync too, not just subscriber count
+    return info.subscriberCount;
+  } catch(e) {
+    console.error('Could not refresh subscriber count, using last known value:', e);
+    return state.channelInfo?.subscriberCount ?? null;
+  }
+}
+
 async function fetchAndBuildPull(start, end, label) {
+  await refreshSubscriberCount();
   let trafficWarning = null, geoWarning = null;
   const [totals, dailySeries, videoData, trafficSources, geography] = await Promise.all([
     fetchPeriodTotals(start, end), fetchDailySeries(start, end), fetchTopVideosWithSplit(start, end),
